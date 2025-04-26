@@ -129,7 +129,6 @@ Comparison : Str EQ Str { StringComp $1 $3 }
 Str : INT { Number $1 }
     | STRING { Name $1 }
     | QUOTE Str QUOTE { $2 }
--- QUOTES DO NOT WORK PANIC!
 
 IntCalc : LENGTH Column { CountLength $2 }
     | INT { Digit $1 }

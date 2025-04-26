@@ -58,7 +58,7 @@ $white+         ;
   "="           { \p s -> TokenEq p } 
   ">"           { \p s -> TokenGT p }
   "<"           { \p s -> TokenLT p }
-  \"            { \p s -> TokenString p } 
+  "\""            { \p s -> TokenString p } 
 
   "LENGTH"      { \p s -> TokenLength p } 
   "ORD_OF"      { \p s -> TokenOrd p } 
