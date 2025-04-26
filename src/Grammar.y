@@ -7,62 +7,61 @@ import Tokens
 %tokentype { Token } 
 %error { parseError }
 %token 
-    SEMICOLON           { TokenSemicolon } 
-    GET         { TokenGET } 
-    FROM        { TokenFROM } 
-    COMMENT     { TokenComment $$ }
+    SEMICOLON           { TokenSemicolon _ } 
+    GET         { TokenGET _ } 
+    FROM        { TokenFROM _ } 
+    COMMENT     { TokenComment _ $$ }
 
-    AST           { TokenAll } 
-    COMMA           { TokenComma } 
-    LPAREN           { TokenLParen } 
-    IF          { TokenIf } 
-    OTHERWISE   { TokenOtherwise } 
-    RPAREN           { TokenRParen } 
-    DOT           { TokenPeriod } 
+    AST           { TokenAll _ } 
+    COMMA           { TokenComma _ } 
+    LPAREN           { TokenLParen _ } 
+    IF          { TokenIf _ } 
+    OTHERWISE   { TokenOtherwise _ } 
+    RPAREN           { TokenRParen _ } 
+    DOT           { TokenPeriod _ } 
 
-    LOAD        { TokenLoad } 
-    PLUS           { TokenPlus } 
-    ON          { TokenOn } 
-    CARTESIAN   { TokenCartesian } 
-    UNION       { TokenUnion } 
-    INTERSECT   { TokenIntersect } 
-    INNER       { TokenInner } 
-    LEFT        { TokenLJoin } 
-    RIGHT       { TokenRJoin } 
-    FULL        { TokenJoin } 
+    LOAD        { TokenLoad _ } 
+    PLUS           { TokenPlus _ } 
+    ON          { TokenOn _ } 
+    CARTESIAN   { TokenCartesian _ } 
+    UNION       { TokenUnion _ } 
+    INTERSECT   { TokenIntersect _ } 
+    INNER       { TokenInner _ } 
+    LEFT        { TokenLJoin _ } 
+    RIGHT       { TokenRJoin _ } 
+    FULL        { TokenJoin _ } 
 
-    OUTPUT      { TokenOutput } 
-    END         { TokenEnd } 
+    OUTPUT      { TokenOutput _ } 
+    END         { TokenEnd _ } 
 
-    WHEN        { TokenWhen } 
-    STORE       { TokenStore } 
-    AS          { TokenAs } 
-    ORDER       { TokenOrder } 
-    GROUPING    { TokenGrouping } 
-    UP          { TokenUp } 
-    DOWN        { TokenDown } 
+    WHEN        { TokenWhen _ } 
+    STORE       { TokenStore _ } 
+    AS          { TokenAs _ } 
+    ORDER       { TokenOrder _ } 
+    GROUPING    { TokenGrouping _ } 
+    UP          { TokenUp _ } 
+    DOWN        { TokenDown _ } 
 
-    NOT         { TokenNOT } 
-    TRUE        { TokenTrue } 
-    FALSE       { TokenFalse } 
-    AND         { TokenAND } 
-    OR          { TokenOR } 
-    XOR         { TokenXOR } 
+    NOT         { TokenNOT _ } 
+    TRUE        { TokenTrue _ } 
+    FALSE       { TokenFalse _ } 
+    AND         { TokenAND _ } 
+    OR          { TokenOR _ } 
+    XOR         { TokenXOR _ } 
 
-    EQ           { TokenEq } 
-    GT      { TokenGT } 
-    LT      { TokenLT } 
-    QUOTE            { TokenString } 
--- NEXT TASK, SPLIT INTCOMP INTO MULTIPLE OF THEM LIKE GT LT EQ
-    LENGTH      { TokenLength } 
-    ORD_OF      { TokenOrd } 
+    EQ           { TokenEq _ } 
+    GT      { TokenGT _ } 
+    LT      { TokenLT _ } 
+    QUOTE            { TokenString _ } 
+    LENGTH      { TokenLength _ } 
+    ORD_OF      { TokenOrd _ } 
     
-    MINUS       { TokenMinus }
-    TIMES       { TokenMul }
-    DIVIDE      { TokenDiv }
-    POWER       { TokenPow }
-    INT       { TokenDigit $$ } 
-    STRING    { TokenVar $$ }
+    MINUS       { TokenMinus _ }
+    TIMES       { TokenMul _ }
+    DIVIDE      { TokenDiv _ }
+    POWER       { TokenPow _ }
+    INT       { TokenDigit _ $$ } 
+    STRING    { TokenVar _ $$ }
 
 %right in
 %left NEG 
@@ -102,7 +101,9 @@ Operation : WHEN Boolean { WhenCondition $2 }
     | AS Outputs { AsExpr $2 }
     | ORDER Order { OrderAs $2 }
     | GROUPING Comparison { GroupAs $2 }
-Outputs : ColumnList { OutputCols $1 }
+Outputs : Output { [ $1 ] }
+    | Outputs Output { $1 ++ [$2] }
+Output : ColumnList { OutputCols $1 }
     | STRING { OutputString $1 }
 Order : IntCalc { OrderCalc $1 }
     | IntCalc DOT Order { NestedOrder $1 }
@@ -126,6 +127,8 @@ Comparison : Str EQ Str { StringComp $1 $3 }
 Str : INT { Number $1 }
     | STRING { Name $1 }
     | QUOTE Str QUOTE { $2 }
+-- QUOTES DO NOT WORK PANIC!
+
 IntCalc : LENGTH Column { CountLength $2 }
     | INT { Digit $1 }
     | ORD_OF INT { CharOrdOfCol $2 }
@@ -137,7 +140,8 @@ IntCalc : LENGTH Column { CountLength $2 }
 
 { 
 parseError :: [Token] -> a
-parseError _ = error "Parse error" 
+parseError [] = error "Parse error" 
+parseError (x:xs) = error ("Parse error at: " ++ (tokenPosn x))
 
 
 -- | A complete parsed program
@@ -188,7 +192,7 @@ data TJoin
 data Optional
   = WhenCondition Boolean
   | Store String
-  | AsExpr Outputs
+  | AsExpr [Outputs]
   | OrderAs Order
   | GroupAs Comparison
   | Output
