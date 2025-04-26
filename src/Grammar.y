@@ -63,8 +63,10 @@ import Tokens
     INT       { TokenDigit _ $$ } 
     STRING    { TokenVar _ $$ }
 
-%right in
-%left NEG 
+%left PLUS MINUS TIMES DIVIDE
+%left AND OR XOR DOT
+%right POWER NOT
+%nonassoc EQ GT LT
 
 %% 
 
