@@ -2,7 +2,7 @@ module Eval where
 import Grammar
 
 type Table = (String, [[String]]) -- (TableName, Rows)
-type Column = (Int, [String]) -- (ColumnIndex, ColumnValues)
+type ColumnType = (Int, [String]) -- (ColumnIndex, ColumnValues)
 
 evalStmt :: Statement -> IO [String]
 evalStmt (SelectStmt selection tabs optionals) = do
@@ -10,11 +10,18 @@ evalStmt (SelectStmt selection tabs optionals) = do
     result <- evalSelection selection tables
     result <- evalOptionals optionals result
 
-evalTables :: [String] -> IO [Table]
+evalTables :: [String] -> [Table]
+evalTables [] = return []
+evalTables (t:ts) = do
+    table <- readCSV t
+    rest <- evalTables ts
+    return (table : rest)
 
 evalSelection :: Selection -> [Table] -> [Column]
 evalSelection SelectAll tables = tables
 evalSelection (SelectColumns columns) tables = map (evalColumns columns) tables
+
+evalColumns :: [Column] -> [Table] -> Column
 
 readCSV :: String -> IO Table
 readCSV filename = do
