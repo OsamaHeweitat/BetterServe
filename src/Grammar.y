@@ -108,7 +108,7 @@ Outputs : Output { [ $1 ] }
 Output : ColumnList { OutputCols $1 }
     | STRING { OutputString $1 }
 Order : IntCalc { OrderCalc $1 }
-    | IntCalc DOT Order { NestedOrder $1 }
+    | IntCalc DOT Order { NestedOrder $1 $3 }
     | UP { OrderByAsc }
     | DOWN { OrderByDesc }
 
@@ -189,7 +189,7 @@ data TJoin
   | Join
   deriving (Show, Eq)
 
--- | Optional clauses like ORDER, GROUPING, WHEN, OUTPUT
+-- | Optional clauses
 data Optional
   = WhenCondition Boolean
   | Store String
@@ -209,7 +209,7 @@ data Outputs
 -- | Ordering options
 data Order
   = OrderCalc IntCalc
-  | NestedOrder IntCalc
+  | NestedOrder IntCalc Order
   | OrderByAsc
   | OrderByDesc
   deriving (Show, Eq)
@@ -231,13 +231,13 @@ data BoolOp
 
 -- | Comparisons
 data Comparison
-  = StringComp Str Str  -- `name = "John"`
+  = StringComp String String -- STRING OR STR I DONT KNOW
   | IntEq IntCalc IntCalc
   | IntGT IntCalc IntCalc
   | IntLT IntCalc IntCalc
   deriving (Show, Eq)
 
--- | String expressions
+-- | MIGHT NOT BE NEEDED
 data Str
   = Number Int
   | Name String
@@ -248,7 +248,7 @@ data Str
 data IntCalc
   = CountLength Column    -- `LENGTH(col)`
   | Digit Int             -- `5`
-  | CharOrdOfCol Int      -- `ORD_OF(5)`
+  | CharOrdOfCol Column      -- `ORD_OF(5)`
   | IntAdd IntCalc IntCalc
   | IntSub IntCalc IntCalc
   | IntMul IntCalc IntCalc
