@@ -1,2 +1,6 @@
 .stack-work/
 *~
+.vscode
+dist-newstyle/
+src/Grammar.hs
+src/Tokens.hs
