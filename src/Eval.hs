@@ -2,25 +2,42 @@ module Eval where
 import Grammar
 
 type Env = [(String, Int)]
+type Table = (String, [[String]])
+
 
 eval :: Env -> Exp -> Int
 eval = undefined
 
+evalProgram :: Program -> String -> IO String
+evalProgram (Program []) result = do return result
+evalProgram (Program (statement:rest)) result = do
+    lines <- evalStmt statement
+    output = toCSVFormat lines
+    return evalProgram rest 
+
+toCSVFormat :: [String] -> String
+toCSVFormat lines = intercalate "," lines
 
 evalStmt :: Statement -> IO [String]
-evalStmt (SelectStmt selection tabs optionals) = do
+evalStmt (SelectStmt selection tabs optionals end) = do
     tables <- evalTables tabs
     result <- evalSelection selection tables
     result <- evalOptionals optionals result 
 
+evalColumns :: [Columns] -> [Table] -> [String]
+evalColumns [] tables = []
+evalColumns (x:xs) tables = (evalColumn x tables) ++ (evalColumns xs tables)
 
-
+evalColumn :: Column -> [Table] -> String
+evalColumn (ColIndex x) tables = getColumn x tables
+evalColumn (ColIndexTable x name) tables = getColWithName x name tables
+evalColumn (IfStmt cols1 boolExpr cols2) tables = if (evalBoolean boolExpr) then (evalColumns cols1 tables) else (evalColumns cols2 tables)
 
 
 --evalOptionals optionals result
 evalOptionals :: [Optional] -> [String] -> IO [String]
 --evalOptionals [] result = result
-evalOptionals [Output] result = print result
+evalOptionals [Output] result = processOutput result
 evalOptionals [End] result = return (result)
 evalOptionals (x:xs) result = (evalOptionals xs (evalOptional x result))
 
@@ -73,6 +90,17 @@ evalOrder (OrderCalc calc) result = result -- TODO
 
 
 
+-- type Table = (String, [[String]])
+getColumn :: Int -> [Table] -> [Table]
+getColumn x [] = []
+getColumn x (table:rest) =  ++ (getColumn x rest)
+    where 
+
+getColWithName :: Int -> String -> [Table] -> [Table]
+getColWithName x name [] = []
+getColWithName x name (table:rest) | (fst table) == name = getColumn x [table]
+                                   | otherwise = getColWithName x name rest
+
 
 storeFile :: String -> [String] -> [String]
 storeFile filename result = do
@@ -80,3 +108,6 @@ storeFile filename result = do
 
 countLength :: String -> Int
 countLength result = length result
+
+
+processOutput ::
