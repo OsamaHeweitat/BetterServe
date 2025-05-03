@@ -72,7 +72,8 @@ import Tokens
 
 Program : Statement { [ $1 ] }
     | Program SEMICOLON Statement { $1 ++ [ $3 ] }
-Statement : GET Selection FROM Tables Optionals { SelectStmt $2 $4 $5 }
+Statement : GET Selection FROM Tables End { SelectStmt $2 $4 $5 }
+    | GET Selection FROM Tables Optionals End { SelectOpt $2 $4 $5 $6 }
     | COMMENT { CommentStmt $1 }
 
 Selection : ColumnList { SelectColumns $1 }
@@ -96,8 +97,7 @@ TJoin : INNER { InnerJoin }
     | FULL { Join }
 
 Optionals : Operation Optionals { ($1 : $2) }
-    | OUTPUT { [Output] }
-    | END { [End] }
+    | Operation { [$1] }
 Operation : WHEN Boolean { WhenCondition $2 }
     | STORE STRING { Store $2 }
     | AS Outputs { AsExpr $2 }
@@ -127,6 +127,7 @@ Comparison : Str EQ Str { StringComp $1 $3 }
     | IntCalc LT IntCalc { IntLT $1 $3 }
 
 Str : INT { Number $1 }
+    | INT DOT INT { SpecNumber $1 $3 }
     | STRING { Name $1 }
     | QUOTE Str QUOTE { $2 }
 
@@ -151,8 +152,14 @@ data Program = Program [Statement]
 
 -- | SQL-like Statements
 data Statement
-  = SelectStmt Selection Tables [Optional]  -- `GET ... FROM ...`
+  = SelectOpt Selection Tables [Optional] End -- `GET ... FROM ...`
+  | SelectStmt Selection Tables End
   | CommentStmt String                      -- `# Comment`
+  deriving (Show, Eq)
+
+data End
+  = Output
+  | End
   deriving (Show, Eq)
 
 -- | Selection of columns
@@ -164,7 +171,7 @@ data Selection
 -- | Column expressions
 data Column
   = ColIndex Int             -- Column by index
-  | ColIndexTable Int String -- Column in table (e.g., `1.name`)
+  | ColIndexTable Int Int
   | IfStmt [Column] Boolean [Column] -- Conditional column selection (IF ... OTHERWISE ...)
   deriving (Show, Eq)
 
@@ -196,8 +203,6 @@ data Optional
   | AsExpr [Outputs]
   | OrderAs Order
   | GroupAs Comparison
-  | Output
-  | End
   deriving (Show, Eq)
 
 -- | Outputs for `AS`
@@ -231,17 +236,17 @@ data BoolOp
 
 -- | Comparisons
 data Comparison
-  = StringComp String String -- STRING OR STR I DONT KNOW
+  = StringComp Str Str
   | IntEq IntCalc IntCalc
   | IntGT IntCalc IntCalc
   | IntLT IntCalc IntCalc
   deriving (Show, Eq)
 
--- | MIGHT NOT BE NEEDED
+-- | NEEDED
 data Str
   = Number Int
   | Name String
-  | Quoted Str
+  | SpecNumber Int Int
   deriving (Show, Eq)
 
 -- | Integer calculations

@@ -3,7 +3,7 @@ import Grammar
 
 type Env = [(String, Int)]
 type Table = (String, [[String]])
-
+type ColumnType = (Int, [String])
 
 eval :: Env -> Exp -> Int
 eval = undefined
@@ -19,18 +19,22 @@ toCSVFormat :: [String] -> String
 toCSVFormat lines = intercalate "," lines
 
 evalStmt :: Statement -> IO [String]
-evalStmt (SelectStmt selection tabs optionals end) = do
+evalStmt (SelectOpt selection tabs optionals end) = do
     tables <- evalTables tabs
     result <- evalSelection selection tables
     result <- evalOptionals optionals result 
+evalStmt (SelectStmt selection tabs end) = do
+    tables <- evalTables tabs
+    result <- evalSelection selection tables
 
-evalColumns :: [Columns] -> [Table] -> [String]
+
+evalColumns :: [Column] -> [Table] -> [String]
 evalColumns [] tables = []
 evalColumns (x:xs) tables = (evalColumn x tables) ++ (evalColumns xs tables)
 
 evalColumn :: Column -> [Table] -> String
 evalColumn (ColIndex x) tables = getColumn x tables
-evalColumn (ColIndexTable x name) tables = getColWithName x name tables
+evalColumn (ColIndexTable x tabIndex) tables = getColWithName x tabIndex tables
 evalColumn (IfStmt cols1 boolExpr cols2) tables = if (evalBoolean boolExpr) then (evalColumns cols1 tables) else (evalColumns cols2 tables)
 
 
@@ -42,29 +46,34 @@ evalOptionals [End] result = return (result)
 evalOptionals (x:xs) result = (evalOptionals xs (evalOptional x result))
 
 --evalOptional optional result
-evalOptional :: Optional -> [String] -> IO [String]
-evalOptional (WhenCondition boolean) result = return (filter (evalBoolean boolean) result)
-evalOptional (Store filename) result = do 
-    (storeFile filename result)
-    return result
-evalOptional (AsExpr outputMod) result = return (evalAs outputMod result [])
-evalOptional (OrderAs order) result = return (evalOrder order result)
-evalOptional (GroupAs group) result = return (concat (groupBy (evalGroup group) result))
+evalOptional :: Optional -> [ColumnType] -> [Table] -> [String]
+evalOptional (WhenCondition boolean) columns tables = return (filter (evalBoolean boolean tables) columns)
+evalOptional (Store filename) columns tables = do 
+    (storeFile filename columns)
+    resultToString columns
+evalOptional (AsExpr outputMod) columns tables = evalAs outputMod columns tables []
+evalOptional (OrderAs order) columns tables = evalOrder order columns
+evalOptional (GroupAs group) columns tables = (concat (groupBy (evalGroup group) columns))
 
-evalBoolean :: Boolean -> Bool
-evalBoolean (BoolExpr b1 (BoolAND) b2) = b1 (&&) b2
-evalBoolean (BoolExpr b1 (BoolOR) b2) = b1 (||) b2
-evalBoolean (BoolExpr b1 (BoolXOR) b2) = b1 /= b2
-evalBoolean (BoolNOT b) = not (evalBoolean b)
-evalBoolean BoolTrue = True
-evalBoolean BoolFalse = False
-evalBoolean (BoolComp comparison) = evalBoolComp comparison
+evalBoolean :: Boolean -> [Table] -> Bool
+evalBoolean (BoolExpr b1 (BoolAND) b2) t = b1 (&&) b2
+evalBoolean (BoolExpr b1 (BoolOR) b2) t = b1 (||) b2
+evalBoolean (BoolExpr b1 (BoolXOR) b2) t = b1 /= b2
+evalBoolean (BoolNOT b) t = not (evalBoolean b)
+evalBoolean BoolTrue t = True
+evalBoolean BoolFalse t = False
+evalBoolean (BoolComp comparison) tables = evalBoolComp comparison tables
 
-evalBoolComp :: Comparison -> Bool
-evalBoolComp (StringComp s1 s2) = s1 == s2
-evalBoolComp (IntEq number1 number2) = (evalInt number1) == (evalInt number2)
-evalBoolComp (IntGT number1 number2) = (evalInt number1) > (evalInt number2)
-evalBoolComp (IntLT number1 number2) = (evalInt number1) < (evalInt number2)
+evalBoolComp :: Comparison -> [Table] -> Bool
+evalBoolComp (StringComp s1 s2) t = (evalString s1 t) == (evalString s2 t)
+evalBoolComp (IntEq number1 number2) t = (evalInt number1) == (evalInt number2)
+evalBoolComp (IntGT number1 number2) t = (evalInt number1) > (evalInt number2)
+evalBoolComp (IntLT number1 number2) t = (evalInt number1) < (evalInt number2)
+
+evalString :: Str -> [Table] -> String
+evalString (Number x) t = (snd (getColumn x t))!!x
+evalString (SpecNumber x tabIndex) t = (snd (getColWithName x tabIndex t))!!x
+evalString (Name x) t = x
 
 evalInt :: IntCalc -> Int
 evalInt (CountLength col) = countLength (evalColumn col)
@@ -91,15 +100,20 @@ evalOrder (OrderCalc calc) result = result -- TODO
 
 
 -- type Table = (String, [[String]])
-getColumn :: Int -> [Table] -> [Table]
-getColumn x [] = []
-getColumn x (table:rest) =  ++ (getColumn x rest)
-    where 
+-- type ColumnType = (Int, [String])
+getColumn :: Int -> Table -> ColumnType
+getColumn x null = null
+getColumn x table = (fst table, ) ++ (getColumn x rest) -- TODO
+    where lines = snd table
 
-getColWithName :: Int -> String -> [Table] -> [Table]
-getColWithName x name [] = []
-getColWithName x name (table:rest) | (fst table) == name = getColumn x [table]
-                                   | otherwise = getColWithName x name rest
+getColumn' :: Int -> [[String]] -> [[String]]
+getColumn' col [] = []
+getColumn' col xs = [x!!col | x <- xs]
+
+getColWithName :: Int -> Int -> [Table] -> ColumnType
+getColWithName x tabIndex [] = []
+getColWithName x 1 (table:rest) = getColumn x table
+getColWithName x tabIndex (table:rest) = getColWithName x (tabIndex - 1) rest
 
 
 storeFile :: String -> [String] -> [String]
