@@ -22,14 +22,32 @@ evalTables (LoadTable filename) = do
     let rows = map (splitOn ",") (lines contents)
     return (filename, rows)
 
--- TableOp, TableJoin, TableConc
-
 -- Define evalExp to convert the Table into a Value if needed
 evalExp :: Env -> Exp -> IO Value
 evalExp env (SelectColumns cols) = do
     let table = getTableFromEnv env
     let result = selectColumns cols table
     return $ TableVal result
+
+evalExp env (TableOp cols exp) = do
+    val <- evalExp env exp
+    case val of
+        TableVal table -> return $ TableVal (selectColumns cols table)
+        _ -> error "Expected a table in TableOp"
+
+evalExp env (TableJoin e1 e2) = do
+    val1 <- evalExp env e1
+    val2 <- evalExp env e2
+    case (val1, val2) of
+        (TableVal t1, TableVal t2) -> return $ TableVal (joinTables t1 t2)
+        _ -> error "Expected two tables in TableJoin"
+
+evalExp env (TableConc e1 e2) = do
+    val1 <- evalExp env e1
+    val2 <- evalExp env e2
+    case (val1, val2) of
+        (TableVal t1, TableVal t2) -> return $ TableVal (t1 ++ t2)
+        _ -> error "Expected two tables in TableConc"
 
 getTableFromEnv :: Env -> [[String]]
 getTableFromEnv env = case Map.lookup "table" env of
