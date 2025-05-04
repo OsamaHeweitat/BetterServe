@@ -105,7 +105,7 @@ Operation : WHEN Boolean { WhenCondition $2 }
     | GROUPING Comparison { GroupAs $2 }
 Outputs : Output { [ $1 ] }
     | Outputs Output { $1 ++ [$2] }
-Output : ColumnList { OutputCols $1 }
+Output : INT { OutputCols $1 }
     | STRING { OutputString $1 }
 Order : IntCalc { OrderCalc $1 }
     | IntCalc DOT Order { NestedOrder $1 $3 }
@@ -207,7 +207,7 @@ data Optional
 
 -- | Outputs for `AS`
 data Outputs
-  = OutputCols [Column]
+  = OutputCols [Int] -- NOW you choose from your indexed selection
   | OutputString String
   deriving (Show, Eq)
 
