@@ -27,7 +27,7 @@ evalProgram :: Program -> String -> IO String
 evalProgram (Program []) result = do return result
 evalProgram (Program (statement:rest)) result = do
     lines <- evalStmt statement
-    output = map toCSVFormat lines
+    let output = map toCSVFormat lines
     return evalProgram rest 
 
 toOutputForm :: [[String]] -> String
@@ -133,8 +133,8 @@ evalOptional (GroupAs group) columns tables = (concat (groupBy (evalGroup group)
 processWhen :: Boolean -> [ColumnType] -> [Table] -> [ColumnType]
 processWhen b col tables = map filterColumn col
     where filterColumn (colIndex, x) = (colIndex, [v | (ind, v) <- zip [0..] x, ind `elem` keepIndices])
-        keepIndices = [i | i <- [0..len - 1], evalBoolean b tables i] -- Rows to keep
-        len = length (snd col)
+          keepIndices = [i | i <- [0..len - 1], evalBoolean b tables i] -- Rows to keep
+          len = length (snd col)
 
 evalBoolean :: Boolean -> [Table] -> Int -> Bool
 evalBoolean (BoolExpr b1 (BoolAND) b2) _ _ = b1 (&&) b2
