@@ -1,10 +1,25 @@
-module Eval where 
+module Eval where
 import Grammar
+import qualified Data.Map as Map
+import System.IO
+import Data.List.Split (splitOn)
 
-type Env = [(String, Int)]
+
+type Env = Map.Map String Value
+--type Row = [String]
+--type Table = (String, [[String]])
 type Table = (Int, [[String]])
 type ColumnType = (Int, [String])
 
+data Value
+    = TableVal [[String]]
+    | StrVal String
+    | IntVal Int
+    | BoolVal Bool
+    deriving (Show, Eq)
+
+
+-- Start
 eval :: Env -> Exp -> Int
 eval = undefined
 
@@ -26,20 +41,77 @@ evalStmt (SelectOpt selection tabs optionals end) = do
     tables <- evalTables tabs
     result <- evalSelection selection tables
     result <- evalOptionals optionals result 
-evalStmt (SelectStmt selection tabs end) = do
+evalStmt (SelectStmt selection tabs end) = do -- Version without optionals
     tables <- evalTables tabs
     result <- evalSelection selection tables
 
 
+-- Eval Tables - Start
+
+-- Evaluate Tables AST into actual Table (name, rows)
+evalTables :: Tables -> IO Table
+evalTables (LoadTable filename) = do
+    contents <- readFile filename
+    let rows = map (splitOn ",") (lines contents)
+    return (filename, rows)
+
+-- Define evalExp to convert the Table into a Value if needed
+evalExp :: Env -> Exp -> IO Value
+evalExp env (SelectColumns cols) = do
+    let table = getTableFromEnv env
+    let result = selectColumns cols table
+    return $ TableVal result
+
+evalExp env (TableOp cols exp) = do
+    val <- evalExp env exp
+    case val of
+        TableVal table -> return $ TableVal (selectColumns cols table)
+        _ -> error "Expected a table in TableOp"
+
+evalExp env (TableJoin e1 e2) = do
+    val1 <- evalExp env e1
+    val2 <- evalExp env e2
+    case (val1, val2) of
+        (TableVal t1, TableVal t2) -> return $ TableVal (joinTables t1 t2)
+        _ -> error "Expected two tables in TableJoin"
+
+evalExp env (TableConc e1 e2) = do
+    val1 <- evalExp env e1
+    val2 <- evalExp env e2
+    case (val1, val2) of
+        (TableVal t1, TableVal t2) -> return $ TableVal (t1 ++ t2)
+        _ -> error "Expected two tables in TableConc"
+
+getTableFromEnv :: Env -> [[String]]
+getTableFromEnv env = case Map.lookup "table" env of
+    Just (TableVal t) -> t
+    _ -> error "Table not found in environment"
+
+-- Select specific columns
+selectColumns :: [Int] -> [[String]] -> [[String]]
+selectColumns cols table = map (\row -> [row !! col | col <- cols]) table
+
+-- Row filtering helper
+filterRows :: (Row -> Bool) -> [[String]] -> [[String]]
+filterRows cond table = filter cond table
+
+-- Project both column selection and filtering
+project :: [Int] -> (Row -> Bool) -> [[String]] -> [[String]]
+project cols cond table = selectColumns cols (filterRows cond table)
+
+
+-- Evaluating the columns and returning the string representations
+
 evalColumns :: [Column] -> [Table] -> [String]
 evalColumns [] tables = []
-evalColumns (x:xs) tables = (evalColumn x tables) ++ (evalColumns xs tables)
+evalColumns (x:xs) tables = [(evalColumn x tables)] ++ [(evalColumns xs tables)]
 
 evalColumn :: Column -> [Table] -> String
 evalColumn (ColIndex x) tables = getColumn x tables
 evalColumn (ColIndexTable x tabIndex) tables = getColWithName x tabIndex tables
 evalColumn (IfStmt cols1 boolExpr cols2) tables = if (evalBoolean boolExpr) then (evalColumns cols1 tables) else (evalColumns cols2 tables)
 
+-- Evaluating the optionsals starts here
 
 --evalOptionals optionals result
 evalOptionals :: [Optional] -> [String] -> IO [String]
@@ -110,7 +182,10 @@ evalOrder (NestedOrder calc order) result = result -- TODO
 evalOrder (OrderCalc calc) result = result -- TODO
 
 
+-- Helper methods are here. 
+-- I expect they'll be used elsewhere so they're separate
 
+-- Type reminder
 -- type Table = (Int, [[String]])
 -- type ColumnType = (Int, [String])
 getColumn :: Int -> Table -> ColumnType
@@ -133,4 +208,4 @@ countLength result = length result
 columnToString :: [ColumnType] -> [[String]]
 columnToString columns = transpose [str | (_, str) <- columns]
 
-processOutput ::
+--processOutput ::
