@@ -1,2 +1,6 @@
 .stack-work/
 *~
+src/Grammar.hs
+src/Input.txt
+src/Tokens.hs
+src/Main.hs

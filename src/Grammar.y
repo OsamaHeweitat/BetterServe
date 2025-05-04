@@ -75,6 +75,8 @@ Program : Statement { [ $1 ] }
 Statement : GET Selection FROM Tables End { SelectStmt $2 $4 $5 }
     | GET Selection FROM Tables Optionals End { SelectOpt $2 $4 $5 $6 }
     | COMMENT { CommentStmt $1 }
+End : OUTPUT { Output }
+    | END { End }
 
 Selection : ColumnList { SelectColumns $1 }
     | AST { SelectAll }
@@ -82,7 +84,7 @@ ColumnList : Column { [$1] }
     | ColumnList COMMA Column { $1 ++ [$3] }
     | LPAREN ColumnList IF Boolean OTHERWISE ColumnList RPAREN { [IfStmt $2 $4 $6] }
 Column : INT { ColIndex $1 }
-    | INT DOT STRING { ColIndexTable $1 $3 }
+    | INT DOT INT { ColIndexTable $1 $3 }
 
 Tables : LOAD STRING { LoadTable $2 }
     | Tables TableExpr Tables { TableOp $1 $2 $3 }
@@ -104,9 +106,10 @@ Operation : WHEN Boolean { WhenCondition $2 }
     | ORDER Order { OrderAs $2 }
     | GROUPING Comparison { GroupAs $2 }
 Outputs : Output { [ $1 ] }
-    | Outputs Output { $1 ++ [$2] }
+    | Outputs COMMA Output { $1 ++ [$3] }
 Output : INT { OutputCols $1 }
     | STRING { OutputString $1 }
+    | QUOTE INT QUOTE { OutputQuote $2 }
 Order : IntCalc { OrderCalc $1 }
     | IntCalc DOT Order { NestedOrder $1 $3 }
     | UP { OrderByAsc }
@@ -129,11 +132,11 @@ Comparison : Str EQ Str { StringComp $1 $3 }
 Str : INT { Number $1 }
     | INT DOT INT { SpecNumber $1 $3 }
     | STRING { Name $1 }
-    | QUOTE Str QUOTE { $2 }
+    | QUOTE Str QUOTE { Quote $2 }
 
 IntCalc : LENGTH Column { CountLength $2 }
     | INT { Digit $1 }
-    | ORD_OF INT { CharOrdOfCol $2 }
+    | ORD_OF Column { CharOrdOfCol $2 }
     | IntCalc PLUS IntCalc { IntAdd $1 $3 }
     | IntCalc MINUS IntCalc { IntSub $1 $3 }
     | IntCalc TIMES IntCalc { IntMul $1 $3 }
@@ -207,8 +210,9 @@ data Optional
 
 -- | Outputs for `AS`
 data Outputs
-  = OutputCols [Int] -- NOW you choose from your indexed selection
+  = OutputCols Int -- NOW you choose from your indexed selection
   | OutputString String
+  | OutputQuote Int
   deriving (Show, Eq)
 
 -- | Ordering options
@@ -247,6 +251,7 @@ data Str
   = Number Int
   | Name String
   | SpecNumber Int Int
+  | Quote Str
   deriving (Show, Eq)
 
 -- | Integer calculations
