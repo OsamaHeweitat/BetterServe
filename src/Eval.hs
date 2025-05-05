@@ -138,7 +138,9 @@ evalColumn (IfStmt cols1 boolExpr cols2) tables = if (evalBoolean boolExpr) then
 --evalOptionals optionals result
 evalOptionals :: [Optional] -> [ColumnType] -> [Table] -> IO [ColumnType]
 evalOptionals [] result _ = return result
-evalOptionals (x:xs) result tables = evalOptionals xs (evalOptional x result tables) tables
+evalOptionals (x:xs) result tables = do 
+    newResult <- evalOptional x result tables
+    evalOptionals xs newResult tables
 
 --evalOptional optional result
 evalOptional :: Optional -> [ColumnType] -> [Table] -> IO [ColumnType]
