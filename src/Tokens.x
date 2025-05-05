@@ -58,7 +58,7 @@ $white+         ;
   "="           { \p s -> TokenEq p } 
   ">"           { \p s -> TokenGT p }
   "<"           { \p s -> TokenLT p }
-  "\""            { \p s -> TokenString p } 
+  \"            { \p s -> TokenQuote p } 
 
   "LENGTH"      { \p s -> TokenLength p } 
   "ORD_OF"      { \p s -> TokenOrd p } 
@@ -115,7 +115,7 @@ data Token =
   TokenEq AlexPosn          |
   TokenGT AlexPosn          |
   TokenLT AlexPosn          |
-  TokenString AlexPosn      |
+  TokenQuote AlexPosn      |
   TokenLength AlexPosn      |
   TokenOrd AlexPosn         |
   TokenMinus AlexPosn       |
@@ -169,7 +169,7 @@ tokenPosn (TokenXOR (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenEq (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenGT (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenLT (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenString (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenQuote (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenLength (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenOrd (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenMinus (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
