@@ -66,6 +66,7 @@ import Tokens
 
 %left PLUS MINUS TIMES DIVIDE
 %left AND OR XOR DOT
+%right COMMA
 %right POWER NOT
 %nonassoc EQ GT LT
 
@@ -114,7 +115,7 @@ Output : INT { OutputCols $1 }
     | STRING { OutputString $1 }
     | QUOTE INT QUOTE { OutputQuote $2 }
 Order : IntCalc { OrderCalc $1 }
-    | IntCalc DOT Order { NestedOrder $1 $3 }
+    | IntCalc COMMA Order { NestedOrder $1 $3 }
     | UP { OrderByAsc }
     | DOWN { OrderByDesc }
 
@@ -184,9 +185,9 @@ data Column
 -- | Tables & joins
 data Tables
   = LoadTable String                    -- `LOAD "table.csv"`
-  | TableOp Tables TableExpr Tables     -- Table operation (e.g., `CARTESIAN`, `UNION`)
-  | TableConc Tables Tables             -- Table concatenation (`+`)
-  | TableJoin Tables TJoin Tables Comparison -- Joins (`INNER`, `LEFT`, etc.)
+  | TableOp [Tables] TableExpr [Tables]     -- Table operation (e.g., `CARTESIAN`, `UNION`)
+  | TableConc [Tables] [Tables]             -- Table concatenation (`+`)
+  | TableJoin [Tables] TJoin [Tables] Comparison -- Joins (`INNER`, `LEFT`, etc.)
   deriving (Show, Eq)
 
 data TableExpr
