@@ -86,11 +86,12 @@ ColumnList : Column { [$1] }
 Column : INT { ColIndex $1 }
     | INT DOT INT { ColIndexTable $1 $3 }
 
-Tables : LOAD STRING { LoadTable $2 }
-    | Tables COMMA Tables { TableOp $1 $3 }
-    | Tables TableExpr Tables { TableOp $1 $2 $3 }
-    | Tables PLUS Tables { TableConc $1 $3 }
-    | Tables TJoin Tables ON Comparison { TableJoin $1 $2 $3 $5 }
+Tables : LOAD STRING { [LoadTable $2] }
+    | Tables TableExpr Tables { [TableOp $1 $2 $3] }
+    | Tables PLUS Tables { [TableConc $1 $3] }
+    | Tables TJoin Tables ON Comparison { [TableJoin $1 $2 $3 $5] }
+    | Tables COMMA Tables { $1 ++ $3 }
+
 TableExpr : CARTESIAN { Cartesian }
     | UNION { Union }
     | INTERSECT { Intersect }
@@ -135,9 +136,9 @@ Str : INT { Number $1 }
     | STRING { Name $1 }
     | QUOTE Str QUOTE { Quote $2 }
 
-IntCalc : LENGTH Column { CountLength $2 }
+IntCalc : LENGTH Str { CountLength $2 }
     | INT { Digit $1 }
-    | ORD_OF Column { CharOrdOfCol $2 }
+    | ORD_OF Str { CharOrdOfCol $2 }
     | IntCalc PLUS IntCalc { IntAdd $1 $3 }
     | IntCalc MINUS IntCalc { IntSub $1 $3 }
     | IntCalc TIMES IntCalc { IntMul $1 $3 }
@@ -156,8 +157,8 @@ data Program = Program [Statement]
 
 -- | SQL-like Statements
 data Statement
-  = SelectOpt Selection Tables [Optional] End -- `GET ... FROM ...`
-  | SelectStmt Selection Tables End
+  = SelectOpt Selection [Tables] [Optional] End -- `GET ... FROM ...`
+  | SelectStmt Selection [Tables] End
   | CommentStmt String                      -- `# Comment`
   deriving (Show, Eq)
 
@@ -257,9 +258,9 @@ data Str
 
 -- | Integer calculations
 data IntCalc
-  = CountLength Column    -- `LENGTH(col)`
-  | Digit Int             -- `5`
-  | CharOrdOfCol Column      -- `ORD_OF(5)`
+  = CountLength Str -- Count length of 
+  | Digit Int           
+  | CharOrdOfCol Str      
   | IntAdd IntCalc IntCalc
   | IntSub IntCalc IntCalc
   | IntMul IntCalc IntCalc
