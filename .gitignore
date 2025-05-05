@@ -7,3 +7,4 @@ src/Main.hs
 .vscode
 dist-newstyle/
 src/Grammar.info
+src/test.bs
