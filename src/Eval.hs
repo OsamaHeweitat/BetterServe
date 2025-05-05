@@ -1,7 +1,7 @@
 module Eval where
 import Grammar
 
-type Table = (String, [[String]]) -- (TableName, Rows)
+type Table = (Int   , [[String]]) -- (Index, Rows)
 type ColumnType = (Int, [String]) -- (ColumnIndex, ColumnValues)
 
 data Value
@@ -17,11 +17,11 @@ evalStmt (SelectStmt selection tabs optionals) = do
     result <- evalSelection selection tables
     result <- evalOptionals optionals result
 
-evalTables :: Tables -> [Table]
+evalTables :: Tables -> IO Table
 evalTables (LoadTable filename) = do
     contents <- readFile filename
     let rows = map (splitOn ",") (lines contents)
-    return [(filename, rows)]
+    return (filename, rows)
 
 evalSelection :: Selection -> [Table] -> [Column]
 evalSelection SelectAll tables = tables
