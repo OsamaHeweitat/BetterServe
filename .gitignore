@@ -6,3 +6,4 @@ src/Tokens.hs
 src/Main.hs
 .vscode
 dist-newstyle/
+src/Grammar.info

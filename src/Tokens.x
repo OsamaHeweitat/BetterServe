@@ -67,6 +67,7 @@ $white+         ;
   "*"           { \p s -> TokenMul p }
   "/"           { \p s -> TokenDiv p }
   "^"           { \p s -> TokenPow p }
+  "NUM"         { \p s -> TokenNumber p }
   $digit+       { \p s -> TokenDigit p (read s) } 
   $alpha [$alpha $digit]*   { \p s -> TokenVar p s } 
 
@@ -121,6 +122,7 @@ data Token =
   TokenMul AlexPosn         |
   TokenDiv AlexPosn         |
   TokenPow AlexPosn         |
+  TokenNumber AlexPosn      |
   TokenDigit AlexPosn Int   |
   TokenVar AlexPosn String   
   deriving (Eq,Show) 
@@ -174,4 +176,5 @@ tokenPosn (TokenMinus (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenMul (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenDiv (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenPow (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenNumber (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
 }

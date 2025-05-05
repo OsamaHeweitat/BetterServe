@@ -62,6 +62,7 @@ import Tokens
     POWER       { TokenPow _ }
     INT       { TokenDigit _ $$ } 
     STRING    { TokenVar _ $$ }
+    NUM       { TokenNumber _ }
 
 %left PLUS MINUS TIMES DIVIDE
 %left AND OR XOR DOT
@@ -137,7 +138,7 @@ Str : INT { Number $1 }
     | QUOTE Str QUOTE { Quote $2 }
 
 IntCalc : LENGTH Str { CountLength $2 }
-    | INT { Digit $1 }
+    | NUM INT { Digit $2 }
     | ORD_OF Str { CharOrdOfCol $2 }
     | IntCalc PLUS IntCalc { IntAdd $1 $3 }
     | IntCalc MINUS IntCalc { IntSub $1 $3 }
