@@ -3,10 +3,9 @@ import Grammar
 import qualified Data.Map as Map
 import System.IO
 import Data.List.Split (splitOn)
+import Data.Char
 
 type Env = Map.Map String Value
---type Row = [String]
---type Table = (String, [[String]])
 type Table = (Int, [[String]])
 type ColumnType = (Int, [String])
 
@@ -62,7 +61,7 @@ evalSelection :: Selection -> [Table] -> IO [ColumnType]
 evalSelection SelectAll tables = return (allTablesToColumns tables)
 evalSelection (SelectColumns cols) tables = do
     let strings = evalColumns cols tables
-    return (zip [0..] (map (:[]) strings))  -- Make single-column format
+    return (zip [0..] (map (:[]) strings))
 
 
 -- Eval Tables - Start
@@ -131,9 +130,9 @@ evalColumns :: [Column] -> [Table] -> [ColumnType]
 evalColumns [] _ = []
 evalColumns (x:xs) tables = (evalColumn x tables) : (evalColumns xs tables)
 
-evalColumn :: Column -> [Table] -> ColumnType
-evalColumn (ColIndex x) tables = getColumn x tables
-evalColumn (ColIndexTable x tabIndex) tables = getColWithName x tabIndex tables
+evalColumn :: Column -> [Table] -> [ColumnType]
+evalColumn (ColIndex x) tables = [getColumn x tables]
+evalColumn (ColIndexTable x tabIndex) tables = [getColWithName x tabIndex tables]
 evalColumn (IfStmt cols1 boolExpr cols2) tables = if (evalBoolean boolExpr) then (evalColumns cols1 tables) else (evalColumns cols2 tables)
 
 -- Evaluating the optionals starts here
@@ -144,13 +143,13 @@ evalOptionals [] result _ = return result
 evalOptionals (x:xs) result tables = evalOptionals xs (evalOptional x result tables) tables
 
 --evalOptional optional result
-evalOptional :: Optional -> [ColumnType] -> [Table] -> [ColumnType]
-evalOptional (WhenCondition boolean) columns tables = processWhen boolean columns table
+evalOptional :: Optional -> [ColumnType] -> [Table] -> IO [ColumnType]
+evalOptional (WhenCondition boolean) columns tables = return (processWhen boolean columns table)
 evalOptional (Store filename) columns tables = do 
     _ <- (storeFile filename (columnToString columns))
-    columns
-evalOptional (AsExpr outputMod) columns tables = evalAs outputMod columns []
-evalOptional (OrderAs order) columns tables = evalOrder order columns
+    return columns
+evalOptional (AsExpr outputMod) columns tables = return (evalAs outputMod columns [])
+evalOptional (OrderAs order) columns tables = return (evalOrder order columns)
 evalOptional (GroupAs group) columns tables = (concat (groupBy (evalGroup group) columns)) -- TODO
 
 -- For each line in each column, it checks whether it's inlcuded in the output
@@ -184,7 +183,9 @@ evalString (Name x) _ _ = x
 evalInt :: IntCalc -> [Table] -> Int -> Int
 evalInt (CountLength str) t row = length (evalString str t row) --countLength (evalColumn col)
 evalInt (Digit x) _ _ = x
-evalInt (CharOrdOfCol col) t i = col -- TODO
+--evalInt (CharOrdOfCol Str) t i = 
+--    let val = evalColumn col t in
+--    ord (head (snd val !! i))
 evalInt (IntAdd x1 x2) t i = (evalInt x1 t i) + (evalInt x2 t i)
 evalInt (IntSub x1 x2) t i = (evalInt x1 t i) - (evalInt x2 t i)
 evalInt (IntMul x1 x2) t i = (evalInt x1 t i) * (evalInt x2 t i)
@@ -208,13 +209,7 @@ evalOrder (OrderCalc calc) result = result -- TODO
 
 
 -- Helper methods are here. 
--- I expect they'll be used elsewhere so they're separate
-
--- Type reminder
--- type Table = (Int, [[String]])
--- type ColumnType = (Int, [String])
 getColumn :: Int -> Table -> ColumnType
-getColumn x null = null
 getColumn x table = (x, map (!! x) (snd table))
 
 getColWithName :: Int -> Int -> [Table] -> ColumnType
