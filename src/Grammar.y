@@ -119,7 +119,7 @@ Order : IntCalc { OrderCalc $1 }
     | UP { OrderByAsc }
     | DOWN { OrderByDesc }
 
-Boolean : Boolean BoolOp Boolean { BoolExpr $1 $2 $3 }
+Boolean : LPAREN Boolean BoolOp Boolean RPAREN { BoolExpr $1 $2 $3 }
     | NOT Boolean { BoolNOT $2 }
     | TRUE { BoolTrue }
     | FALSE { BoolFalse }
