@@ -72,8 +72,11 @@ import Tokens
 
 Program : Statement { [ $1 ] }
     | Program SEMICOLON Statement { $1 ++ [ $3 ] }
-Statement : GET Selection FROM Tables Optionals { SelectStmt $2 $4 $5 }
+Statement : GET Selection FROM Tables End { SelectStmt $2 $4 $5 }
+    | GET Selection FROM Tables Optionals End { SelectOpt $2 $4 $5 $6 }
     | COMMENT { CommentStmt $1 }
+End : OUTPUT { Output }
+    | END { End }
 
 Selection : ColumnList { SelectColumns $1 }
     | AST { SelectAll }
@@ -81,13 +84,14 @@ ColumnList : Column { [$1] }
     | ColumnList COMMA Column { $1 ++ [$3] }
     | LPAREN ColumnList IF Boolean OTHERWISE ColumnList RPAREN { [IfStmt $2 $4 $6] }
 Column : INT { ColIndex $1 }
-    | INT DOT STRING { ColIndexTable $1 $3 }
+    | INT DOT INT { ColIndexTable $1 $3 }
 
-Tables : LOAD STRING { LoadTable $2 }
-    | Tables COMMA Tables { TableOp $1 $3 }
-    | Tables TableExpr Tables { TableOp $1 $2 $3 }
-    | Tables PLUS Tables { TableConc $1 $3 }
-    | Tables TJoin Tables ON Comparison { TableJoin $1 $2 $3 $5 }
+Tables : LOAD STRING { [LoadTable $2] }
+    | Tables TableExpr Tables { [TableOp $1 $2 $3] }
+    | Tables PLUS Tables { [TableConc $1 $3] }
+    | Tables TJoin Tables ON Comparison { [TableJoin $1 $2 $3 $5] }
+    | Tables COMMA Tables { $1 ++ $3 }
+
 TableExpr : CARTESIAN { Cartesian }
     | UNION { Union }
     | INTERSECT { Intersect }
@@ -97,19 +101,19 @@ TJoin : INNER { InnerJoin }
     | FULL { Join }
 
 Optionals : Operation Optionals { ($1 : $2) }
-    | OUTPUT { [Output] }
-    | END { [End] }
+    | Operation { [$1] }
 Operation : WHEN Boolean { WhenCondition $2 }
     | STORE STRING { Store $2 }
     | AS Outputs { AsExpr $2 }
     | ORDER Order { OrderAs $2 }
     | GROUPING Comparison { GroupAs $2 }
 Outputs : Output { [ $1 ] }
-    | Outputs Output { $1 ++ [$2] }
-Output : ColumnList { OutputCols $1 }
+    | Outputs COMMA Output { $1 ++ [$3] }
+Output : INT { OutputCols $1 }
     | STRING { OutputString $1 }
+    | QUOTE INT QUOTE { OutputQuote $2 }
 Order : IntCalc { OrderCalc $1 }
-    | IntCalc DOT Order { NestedOrder $1 }
+    | IntCalc DOT Order { NestedOrder $1 $3 }
     | UP { OrderByAsc }
     | DOWN { OrderByDesc }
 
@@ -128,12 +132,13 @@ Comparison : Str EQ Str { StringComp $1 $3 }
     | IntCalc LT IntCalc { IntLT $1 $3 }
 
 Str : INT { Number $1 }
+    | INT DOT INT { SpecNumber $1 $3 }
     | STRING { Name $1 }
-    | QUOTE Str QUOTE { $2 }
+    | QUOTE Str QUOTE { Quote $2 }
 
-IntCalc : LENGTH Column { CountLength $2 }
+IntCalc : LENGTH Str { CountLength $2 }
     | INT { Digit $1 }
-    | ORD_OF INT { CharOrdOfCol $2 }
+    | ORD_OF Str { CharOrdOfCol $2 }
     | IntCalc PLUS IntCalc { IntAdd $1 $3 }
     | IntCalc MINUS IntCalc { IntSub $1 $3 }
     | IntCalc TIMES IntCalc { IntMul $1 $3 }
@@ -152,8 +157,14 @@ data Program = Program [Statement]
 
 -- | SQL-like Statements
 data Statement
-  = SelectStmt Selection Tables [Optional]  -- `GET ... FROM ...`
+  = SelectOpt Selection [Tables] [Optional] End -- `GET ... FROM ...`
+  | SelectStmt Selection [Tables] End
   | CommentStmt String                      -- `# Comment`
+  deriving (Show, Eq)
+
+data End
+  = Output
+  | End
   deriving (Show, Eq)
 
 -- | Selection of columns
@@ -165,7 +176,7 @@ data Selection
 -- | Column expressions
 data Column
   = ColIndex Int             -- Column by index
-  | ColIndexTable Int String -- Column in table (e.g., `1.name`)
+  | ColIndexTable Int Int
   | IfStmt [Column] Boolean [Column] -- Conditional column selection (IF ... OTHERWISE ...)
   deriving (Show, Eq)
 
@@ -190,27 +201,26 @@ data TJoin
   | Join
   deriving (Show, Eq)
 
--- | Optional clauses like ORDER, GROUPING, WHEN, OUTPUT
+-- | Optional clauses
 data Optional
   = WhenCondition Boolean
   | Store String
   | AsExpr [Outputs]
   | OrderAs Order
   | GroupAs Comparison
-  | Output
-  | End
   deriving (Show, Eq)
 
 -- | Outputs for `AS`
 data Outputs
-  = OutputCols [Column]
+  = OutputCols Int -- NOW you choose from your indexed selection
   | OutputString String
+  | OutputQuote Int
   deriving (Show, Eq)
 
 -- | Ordering options
 data Order
   = OrderCalc IntCalc
-  | NestedOrder IntCalc
+  | NestedOrder IntCalc Order
   | OrderByAsc
   | OrderByDesc
   deriving (Show, Eq)
@@ -232,24 +242,25 @@ data BoolOp
 
 -- | Comparisons
 data Comparison
-  = StringComp Str Str  -- `name = "John"`
+  = StringComp Str Str
   | IntEq IntCalc IntCalc
   | IntGT IntCalc IntCalc
   | IntLT IntCalc IntCalc
   deriving (Show, Eq)
 
--- | String expressions
+-- | NEEDED
 data Str
   = Number Int
   | Name String
-  | Quoted Str
+  | SpecNumber Int Int
+  | Quote Str
   deriving (Show, Eq)
 
 -- | Integer calculations
 data IntCalc
-  = CountLength Column    -- `LENGTH(col)`
-  | Digit Int             -- `5`
-  | CharOrdOfCol Int      -- `ORD_OF(5)`
+  = CountLength Str -- Count length of 
+  | Digit Int           
+  | CharOrdOfCol Str      
   | IntAdd IntCalc IntCalc
   | IntSub IntCalc IntCalc
   | IntMul IntCalc IntCalc
