@@ -126,7 +126,7 @@ Boolean : Boolean BoolOp Boolean { BoolExpr $1 $2 $3 }
 BoolOp : AND { BoolAND }
     | OR { BoolOR }
     | XOR { BoolXOR }
-Comparison : Str EQ Str { StringComp $1 $3 }
+Comparison : Str EQ EQ Str { StringComp $1 $4 }
     | IntCalc EQ IntCalc { IntEq $1 $3 }
     | IntCalc GT IntCalc { IntGT $1 $3 }
     | IntCalc LT IntCalc { IntLT $1 $3 }
