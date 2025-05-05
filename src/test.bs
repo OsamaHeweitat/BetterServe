@@ -1,0 +1,1 @@
+GET 1 FROM A.csv WHEN 1=2

@@ -91,6 +91,7 @@ Tables : LOAD STRING { [LoadTable $2] }
     | Tables PLUS Tables { [TableConc $1 $3] }
     | Tables TJoin Tables ON Comparison { [TableJoin $1 $2 $3 $5] }
     | Tables COMMA Tables { $1 ++ $3 }
+
 TableExpr : CARTESIAN { Cartesian }
     | UNION { Union }
     | INTERSECT { Intersect }
