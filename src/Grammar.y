@@ -88,7 +88,7 @@ ColumnList : Column { [$1] }
 Column : INT { ColIndex $1 }
     | INT DOT INT { ColIndexTable $1 $3 }
 
-Tables : LOAD QUOTE STRING QUOTE { [LoadTable $3] }
+Tables : LOAD STRING { [LoadTable $2] }
     | LPAREN Tables TableExpr Tables RPAREN { [TableOp $2 $3 $4] }
     | LPAREN Tables PLUS Tables RPAREN { [TableConc $2 $4] }
     | LPAREN Tables TJoin Tables ON Comparison RPAREN { [TableJoin $2 $3 $4 $6] }
