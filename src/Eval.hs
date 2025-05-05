@@ -37,8 +37,9 @@ evalStmt (SelectStmt selection tabs end) = do -- Version without optionals
 evalEnd :: IO [ColumnType] -> End -> IO [ColumnType]
 evalEnd final End = final
 evalEnd final Output = do
-    _ <- putStrLn (toOutputForm (columnToString final))
-    return final
+    _ <- putStrLn (toOutputForm (columnToRows final))
+    printedLine <- final
+    return printedLine
 
 
 -- Eval Selection
@@ -109,7 +110,7 @@ evalOptionals (x:xs) result tables = do
 evalOptional :: Optional -> [ColumnType] -> [Table] -> IO [ColumnType]
 evalOptional (WhenCondition boolean) columns tables = return (processWhen boolean columns tables)
 evalOptional (Store filename) columns tables = do 
-    _ <- (storeFile filename (columnToString columns))
+    _ <- (storeFile filename (columnToRows columns))
     return columns
 evalOptional (AsExpr outputMod) columns tables = return (evalAs outputMod columns [])
 evalOptional (OrderAs order) columns tables = return (evalOrder order columns)
@@ -160,10 +161,10 @@ evalInt (IntPow x1 x2) t i = (evalInt x1 t i) ^ (evalInt x2 t i)
 
 -- out stores the current output
 evalAs :: [Outputs] -> [ColumnType] -> [ColumnType] -> [ColumnType] -- This needs to return [ColumnType]
-evalAs [] result out = out
-evalAs ((OutputCols number):rest) result out | number <= length result = evalAs rest result (out ++ [result!!(number-1)])
+evalAs [] result acc = acc
+evalAs ((OutputCols number):rest) result acc | number <= length result = evalAs rest result ([result!!(number-1)] ++ acc)
     | otherwise = error "Index out of bounds"
-evalAs ((OutputString str):rest) result out = evalAs rest result (out ++ [(0, [str])])
+evalAs ((OutputString str):rest) result acc = evalAs rest result ([(0, [str])] ++ acc)
 
 evalOrder :: Order -> [ColumnType] -> [ColumnType]
 evalOrder OrderByAsc result = result -- sort result -- SORT
@@ -181,16 +182,15 @@ getColWithName x tabIndex [] = error "Index out of bounds"
 getColWithName x 1 (table:rest) = getColumn x table
 getColWithName x tabIndex (table:rest) = getColWithName x (tabIndex - 1) rest
 
-storeFile :: String -> [[String]] -> IO [[String]]
+storeFile :: String -> [[String]] -> IO ()
 storeFile filename result = do
     writeFile filename (toOutputForm result)
-    return result
 
 countLength :: String -> Int
 countLength result = length result
 
-columnToString :: [ColumnType] -> [[String]]
-columnToString columns = transpose [str | (_, str) <- columns]
+columnToRow :: [ColumnType] -> [[String]]
+columnToRow columns = transpose [str | (_, str) <- columns]
 
 
 readCSV :: String -> IO Table
