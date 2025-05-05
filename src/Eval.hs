@@ -50,9 +50,9 @@ evalStmt (SelectStmt selection tabs end) = do -- Version without optionals
 
 
 evalEnd :: IO [ColumnType] -> End -> IO [ColumnType]
-evalEnd final End = return final
+evalEnd final End = final
 evalEnd final Output = do
-    printOut (processColumns final)
+    _ <- printOut (processColumns final)
     return final
 
 
@@ -127,7 +127,6 @@ project cols cond table = selectColumns cols (filterRows cond table)
 
 
 -- Evaluating the columns and returning the string representations
-
 evalColumns :: [Column] -> [Table] -> [ColumnType]
 evalColumns [] _ = []
 evalColumns (x:xs) tables = (evalColumn x tables) : (evalColumns xs tables)
@@ -145,12 +144,12 @@ evalOptionals [] result _ = return result
 evalOptionals (x:xs) result tables = evalOptionals xs (evalOptional x result tables) tables
 
 --evalOptional optional result
-evalOptional :: Optional -> [ColumnType] -> [Table] -> IO [ColumnType]
-evalOptional (WhenCondition boolean) columns tables = return (processWhen boolean columns table)
+evalOptional :: Optional -> [ColumnType] -> [Table] -> [ColumnType]
+evalOptional (WhenCondition boolean) columns tables = processWhen boolean columns table
 evalOptional (Store filename) columns tables = do 
     _ <- (storeFile filename (columnToString columns))
-    return columns
-evalOptional (AsExpr outputMod) columns tables = return (evalAs outputMod columns [])
+    columns
+evalOptional (AsExpr outputMod) columns tables = evalAs outputMod columns []
 evalOptional (OrderAs order) columns tables = evalOrder order columns
 evalOptional (GroupAs group) columns tables = (concat (groupBy (evalGroup group) columns)) -- TODO
 
@@ -189,7 +188,7 @@ evalInt (CharOrdOfCol col) t i = col -- TODO
 evalInt (IntAdd x1 x2) t i = (evalInt x1 t i) + (evalInt x2 t i)
 evalInt (IntSub x1 x2) t i = (evalInt x1 t i) - (evalInt x2 t i)
 evalInt (IntMul x1 x2) t i = (evalInt x1 t i) * (evalInt x2 t i)
-evalInt (IntDiv x1 x2) t i = (evalInt x1 t i) / (evalInt x2 t i)
+evalInt (IntDiv x1 x2) t i = (evalInt x1 t i) `div` (evalInt x2 t i)
 evalInt (IntPow x1 x2) t i = (evalInt x1 t i) ^ (evalInt x2 t i)
 
 -- out stores the current output
@@ -201,11 +200,11 @@ evalAs ((OutputCols number):rest) result out | number <= length result = evalAs 
 --evalAs ((OutputCols (col:cols)):rest) result out = evalAs (OutputCols cols) result (out ++ (modifyOut col result))
 evalAs ((OutputString str):rest) result out = evalAs rest result (out ++ [(0, [str])])
 
-evalOrder :: Order -> [ColumnType] -> IO [ColumnType]
-evalOrder OrderByAsc result = return result -- sort result -- SORT
-evalOrder OrderByDesc result = return result --reverse (sort result) SORT
-evalOrder (NestedOrder calc order) result = return result -- TODO
-evalOrder (OrderCalc calc) result = return result -- TODO
+evalOrder :: Order -> [ColumnType] -> [ColumnType]
+evalOrder OrderByAsc result = result -- sort result -- SORT
+evalOrder OrderByDesc result = result --reverse (sort result) SORT
+evalOrder (NestedOrder calc order) result = result -- TODO
+evalOrder (OrderCalc calc) result = result -- TODO
 
 
 -- Helper methods are here. 
@@ -234,30 +233,20 @@ countLength result = length result
 columnToString :: [ColumnType] -> [[String]]
 columnToString columns = transpose [str | (_, str) <- columns]
 
-evalStmt :: Statement -> IO [String]
-evalStmt (SelectStmt selection tabs optionals) = do
-    tables <- evalTables tabs
-    result <- evalSelection selection tables
-    result <- evalOptionals optionals result
 
-evalTables :: Tables -> [Table]
-evalTables (LoadTable filename) = do
-    contents <- readFile filename
-    let rows = map (splitOn ",") (lines contents)
-    return [(filename, rows)]
+------------------------------------
 
-evalSelection :: Selection -> [Table] -> [Column]
-evalSelection SelectAll tables = tables
-evalSelection (SelectColumns columns) tables = map (evalColumns columns) tables
+--evalTables :: Tables -> [Table]
+--evalTables (LoadTable filename) = do
+--    contents <- readFile filename
+--    let rows = map (splitOn ",") (lines contents)
+--    return [(filename, rows)]
 
-evalColumns :: [Column] -> [Table] -> [ColumnType]
-evalColumns columns tables = do
-    let columnIndex = map (getColumnIndex columns) tables
-    let columnValues = map (getColumnValues columnIndex) tables
-    return (columnIndex, columnValues)
-
-evalOptionals :: [Optional] -> [Column] -> [Table] -> [String]
-evalOptionals 
+--evalColumns :: [Column] -> [Table] -> [ColumnType]
+--evalColumns columns tables = do
+--    let columnIndex = map (getColumnIndex columns) tables
+--    let columnValues = map (getColumnValues columnIndex) tables
+--    return (columnIndex, columnValues)
 
 readCSV :: String -> IO Table
 readCSV filename = do
