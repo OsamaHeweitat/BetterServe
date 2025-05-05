@@ -27,8 +27,6 @@ evalProgram (Program (statement:rest)) result = do
     let formatted = unlines (map toCSVFormat lines)
     restResult <- evalProgram (Program rest) (result ++ "\n" ++ formatted)
     return restResult
-    --let output = map toCSVFormat lines
-    --return evalProgram rest 
 
 toOutputForm :: [[String]] -> String
 toOutputForm out = intercalate "\n" (intercalate "," out)
@@ -51,7 +49,7 @@ evalStmt (SelectStmt selection tabs end) = do -- Version without optionals
 evalEnd :: IO [ColumnType] -> End -> IO [ColumnType]
 evalEnd final End = final
 evalEnd final Output = do
-    _ <- printOut (processColumns final)
+    _ <- putStrLn (toOutputForm (columnToString final))
     return final
 
 
