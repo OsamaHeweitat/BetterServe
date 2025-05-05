@@ -87,6 +87,7 @@ Column : INT { ColIndex $1 }
     | INT DOT INT { ColIndexTable $1 $3 }
 
 Tables : LOAD STRING { LoadTable $2 }
+    | Tables COMMA Tables { TableOp $1 $3 }
     | Tables TableExpr Tables { TableOp $1 $2 $3 }
     | Tables PLUS Tables { TableConc $1 $3 }
     | Tables TJoin Tables ON Comparison { TableJoin $1 $2 $3 $5 }
