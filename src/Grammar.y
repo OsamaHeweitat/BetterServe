@@ -62,6 +62,7 @@ import Tokens
     POWER       { TokenPow _ }
     INT       { TokenDigit _ $$ } 
     STRING    { TokenVar _ $$ }
+    NUM       { TokenNumber _ }
 
 %left PLUS MINUS TIMES DIVIDE
 %left AND OR XOR DOT
@@ -87,9 +88,9 @@ Column : INT { ColIndex $1 }
     | INT DOT INT { ColIndexTable $1 $3 }
 
 Tables : LOAD STRING { [LoadTable $2] }
-    | Tables TableExpr Tables { [TableOp $1 $2 $3] }
-    | Tables PLUS Tables { [TableConc $1 $3] }
-    | Tables TJoin Tables ON Comparison { [TableJoin $1 $2 $3 $5] }
+    | LPAREN Tables TableExpr Tables RPAREN { [TableOp $2 $3 $4] }
+    | LPAREN Tables PLUS Tables RPAREN { [TableConc $2 $4] }
+    | LPAREN Tables TJoin Tables ON Comparison RPAREN { [TableJoin $2 $3 $4 $6] }
     | Tables COMMA Tables { $1 ++ $3 }
 
 TableExpr : CARTESIAN { Cartesian }
@@ -126,7 +127,7 @@ Boolean : Boolean BoolOp Boolean { BoolExpr $1 $2 $3 }
 BoolOp : AND { BoolAND }
     | OR { BoolOR }
     | XOR { BoolXOR }
-Comparison : Str EQ Str { StringComp $1 $3 }
+Comparison : Str EQ EQ Str { StringComp $1 $4 }
     | IntCalc EQ IntCalc { IntEq $1 $3 }
     | IntCalc GT IntCalc { IntGT $1 $3 }
     | IntCalc LT IntCalc { IntLT $1 $3 }
@@ -137,7 +138,7 @@ Str : INT { Number $1 }
     | QUOTE Str QUOTE { Quote $2 }
 
 IntCalc : LENGTH Str { CountLength $2 }
-    | INT { Digit $1 }
+    | NUM INT { Digit $2 }
     | ORD_OF Str { CharOrdOfCol $2 }
     | IntCalc PLUS IntCalc { IntAdd $1 $3 }
     | IntCalc MINUS IntCalc { IntSub $1 $3 }
@@ -183,9 +184,9 @@ data Column
 -- | Tables & joins
 data Tables
   = LoadTable String                    -- `LOAD "table.csv"`
-  | TableOp Tables TableExpr Tables     -- Table operation (e.g., `CARTESIAN`, `UNION`)
-  | TableConc Tables Tables             -- Table concatenation (`+`)
-  | TableJoin Tables TJoin Tables Comparison -- Joins (`INNER`, `LEFT`, etc.)
+  | TableOp [Tables] TableExpr [Tables]     -- Table operation (e.g., `CARTESIAN`, `UNION`)
+  | TableConc [Tables] [Tables]             -- Table concatenation (`+`)
+  | TableJoin [Tables] TJoin [Tables] Comparison -- Joins (`INNER`, `LEFT`, etc.)
   deriving (Show, Eq)
 
 data TableExpr

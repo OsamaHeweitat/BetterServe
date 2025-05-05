@@ -1,266 +1,184 @@
 module Eval where
 import Grammar
+import Tokens
 import qualified Data.Map as Map
 import System.IO
 import Data.List.Split (splitOn)
+import Data.List
+import Data.Char (ord)
+import Control.Applicative
+import Text.Parsec
+import Data.Array (Ix(index))
 
-type Table = (Int   , [[String]]) -- (Index, Rows)
+type Table = (Int, [[String]]) -- (Index, Rows)
 type ColumnType = (Int, [String]) -- (ColumnIndex, ColumnValues)
 
-data Value
-    = TableVal [[String]]
-    | StrVal String
-    | IntVal Int
-    | BoolVal Bool
-    deriving (Show, Eq)
-
--- Start
-eval :: Env -> Exp -> Int
-eval = undefined
+eval :: String -> IO String
+eval filename = do
+    contents <- readFile filename
+    let program = Program (Grammar.parse (alexScanTokens contents))
+    evalProgram program ""
 
 evalProgram :: Program -> String -> IO String
-evalProgram (Program []) result = do return result
+evalProgram (Program []) result = return result
 evalProgram (Program (statement:rest)) result = do
-    lines <- evalStmt statement
-    let formatted = unlines (map toCSVFormat lines)
-    restResult <- evalProgram (Program rest) (result ++ "\n" ++ formatted)
-    return restResult
-    --let output = map toCSVFormat lines
-    --return evalProgram rest 
-
-toOutputForm :: [[String]] -> String
-toOutputForm out = intercalate "\n" (intercalate "," out)
-
-toCSVFormat :: [String] -> String
-toCSVFormat lines = intercalate "," lines
+    stmtLines <- evalStmt statement
+    let formatted = unlines (map (toCSVFormat . snd) stmtLines)
+    evalProgram (Program rest) (result ++ "\n" ++ formatted)
+    where
+        toCSVFormat :: [String] -> String
+        toCSVFormat = intercalate ","
 
 evalStmt :: Statement -> IO [ColumnType]
 evalStmt (SelectOpt selection tabs optionals end) = do
-    tables <- evalTables tabs
+    tables <- evalTables 1 tabs
     result <- evalSelection selection tables
-    final <- evalOptionals optionals result  tables
+    final <- evalOptionals optionals result tables
     evalEnd final end
 evalStmt (SelectStmt selection tabs end) = do -- Version without optionals
-    tables <- evalTables tabs
+    tables <- evalTables 1 tabs
     result <- evalSelection selection tables
     evalEnd result end
+evalStmt (CommentStmt comment) = do
+    putStrLn $ "Comment: " ++ comment
+    return []
 
+evalTables :: Int -> [Tables] -> IO [Table]
+evalTables _ [] = return []
+evalTables tableIndex (table:rest) = do
+    t <- evalTable tableIndex table
+    ts <- evalTables (tableIndex + 1) rest
+    return (t : ts)
 
-evalEnd :: IO [ColumnType] -> End -> IO [ColumnType]
+evalTable :: Int -> Tables -> IO Table
+evalTable tableIndex (LoadTable filename) = do
+    contents <- readFile filename
+    let rows = map (splitOn ",") (lines contents)
+    return (tableIndex, rows)
+evalTable _ (TableOp {}) = error "TableOp not implemented"
+evalTable _ (TableConc _ _) = error "TableConc not implemented"
+evalTable _ (TableJoin {}) = error "TableJoin not implemented"
+
+evalEnd :: [ColumnType] -> End -> IO [ColumnType]
 evalEnd final End = return final
-evalEnd final Output = do
-    printOut (processColumns final)
-    return final
-
-
--- Eval Selection
+evalEnd final Output = return final
 
 evalSelection :: Selection -> [Table] -> IO [ColumnType]
 evalSelection SelectAll tables = return (allTablesToColumns tables)
+    where
+        allTablesToColumns :: [Table] -> [ColumnType]
+        allTablesToColumns [] = []
+        allTablesToColumns ((tableIndex, rows):rest) = (tableIndex, concat rows) : allTablesToColumns rest
 evalSelection (SelectColumns cols) tables = do
     let strings = evalColumns cols tables
-    return (zip [0..] (map (:[]) strings))  -- Make single-column format
+    return (zip [0..] (map (:[]) (concatMap snd strings)))
 
-
--- Eval Tables - Start
-
-evalTables :: [Tables] -> IO [Table]
-evalTables [] = return []
-evalTables (table:rest) = do
-    t <- evalTable table
-    ts <- evalTables rest
-    return (t : ts)
-
--- Evaluate Tables AST into actual Table (name, rows)
-evalTable :: Tables -> IO Table
-evalTable (LoadTable filename) = do
-    contents <- readFile filename
-    let rows = map (splitOn ",") (lines contents)
-    return (filename, rows)
-
--- Define evalExp to convert the Table into a Value if needed
-evalExp :: Env -> Exp -> IO Value
-evalExp env (SelectColumns cols) = do
-    let table = getTableFromEnv env
-    let result = selectColumns cols table
-    return $ TableVal result
-
-evalExp env (TableOp cols exp) = do
-    val <- evalExp env exp
-    case val of
-        TableVal table -> return $ TableVal (selectColumns cols table)
-        _ -> error "Expected a table in TableOp"
-
-evalExp env (TableJoin e1 e2) = do
-    val1 <- evalExp env e1
-    val2 <- evalExp env e2
-    case (val1, val2) of
-        (TableVal t1, TableVal t2) -> return $ TableVal (joinTables t1 t2)
-        _ -> error "Expected two tables in TableJoin"
-
-evalExp env (TableConc e1 e2) = do
-    val1 <- evalExp env e1
-    val2 <- evalExp env e2
-    case (val1, val2) of
-        (TableVal t1, TableVal t2) -> return $ TableVal (t1 ++ t2)
-        _ -> error "Expected two tables in TableConc"
-
-getTableFromEnv :: Env -> [[String]]
-getTableFromEnv env = case Map.lookup "table" env of
-    Just (TableVal t) -> t
-    _ -> error "Table not found in environment"
-
--- Select specific columns
-selectColumns :: [Int] -> [[String]] -> [[String]]
-selectColumns cols table = map (\row -> [row !! col | col <- cols]) table
-
--- Row filtering helper
-filterRows :: (Row -> Bool) -> [[String]] -> [[String]]
-filterRows cond table = filter cond table
-
--- Project both column selection and filtering
-project :: [Int] -> (Row -> Bool) -> [[String]] -> [[String]]
-project cols cond table = selectColumns cols (filterRows cond table)
-
-
--- Evaluating the columns and returning the string representations
-
-evalColumns :: [Column] -> [Table] -> [ColumnType]
+evalColumns :: [Grammar.Column] -> [Table] -> [ColumnType]
 evalColumns [] _ = []
-evalColumns (x:xs) tables = (evalColumn x tables) : (evalColumns xs tables)
+evalColumns (x:xs) tables = evalColumn x tables : evalColumns xs tables
 
-evalColumn :: Column -> [Table] -> ColumnType
+evalColumn :: Grammar.Column -> [Table] -> ColumnType
 evalColumn (ColIndex x) tables = getColumn x tables
-evalColumn (ColIndexTable x tabIndex) tables = getColWithName x tabIndex tables
-evalColumn (IfStmt cols1 boolExpr cols2) tables = if (evalBoolean boolExpr) then (evalColumns cols1 tables) else (evalColumns cols2 tables)
+evalColumn (ColIndexTable x tabIndex) tables = getColWithIndex x tabIndex tables
+evalColumn (IfStmt cols1 boolExpr cols2) tables =
+    let columns = if evalBoolean boolExpr tables 0
+                  then evalColumns cols1 tables
+                  else evalColumns cols2 tables
+    in (0, concatMap snd columns)
 
--- Evaluating the optionals starts here
+getColumn :: Int -> [Table] -> ColumnType
+getColumn colIndex tables = (colIndex, concatMap (getColValues colIndex) tables)
+    where
+        getColValues :: Int -> Table -> [String]
+        getColValues columnIndex (_, rows) = map (!! columnIndex) rows
 
---evalOptionals optionals result
-evalOptionals :: [Optional] -> [ColumnType] -> [Table] -> IO [ColumnType]
-evalOptionals [] result _ = return result
-evalOptionals (x:xs) result tables = evalOptionals xs (evalOptional x result tables) tables
-
---evalOptional optional result
-evalOptional :: Optional -> [ColumnType] -> [Table] -> IO [ColumnType]
-evalOptional (WhenCondition boolean) columns tables = return (processWhen boolean columns table)
-evalOptional (Store filename) columns tables = do 
-    _ <- (storeFile filename (columnToString columns))
-    return columns
-evalOptional (AsExpr outputMod) columns tables = return (evalAs outputMod columns [])
-evalOptional (OrderAs order) columns tables = evalOrder order columns
-evalOptional (GroupAs group) columns tables = (concat (groupBy (evalGroup group) columns)) -- TODO
-
--- For each line in each column, it checks whether it's inlcuded in the output
--- If it is, add it to the list
-processWhen :: Boolean -> [ColumnType] -> [Table] -> [ColumnType]
-processWhen b col tables = map filterColumn col
-    where filterColumn (colIndex, x) = (colIndex, [v | (ind, v) <- zip [0..] x, ind `elem` keepIndices])
-          keepIndices = [i | i <- [0..len - 1], evalBoolean b tables i] -- Rows to keep
-          len = length (snd col)
+getColWithIndex :: Int -> Int -> [Table] -> ColumnType
+getColWithIndex colIndex tabIndex tables = (colIndex, concatMap (getColValues colIndex) filteredTables)
+    where
+        filteredTables = filter (\(tblIndex, _) -> tblIndex == tabIndex) tables
+        getColValues :: Int -> Table -> [String]
+        getColValues columnIndex (_, rows) = map (!! columnIndex) rows
 
 evalBoolean :: Boolean -> [Table] -> Int -> Bool
-evalBoolean (BoolExpr b1 (BoolAND) b2) t i = (evalBoolean b1 t i) && (evalBoolean b2 t i)
-evalBoolean (BoolExpr b1 (BoolOR) b2) t i = (evalBoolean b1 t i) || (evalBoolean b2 t i)
-evalBoolean (BoolExpr b1 (BoolXOR) b2) t i = (evalBoolean b1 t i) /= (evalBoolean b2 t i)
+evalBoolean (BoolExpr b1 BoolAND b2) t i = evalBoolean b1 t i && evalBoolean b2 t i
+evalBoolean (BoolExpr b1 BoolOR b2) t i = evalBoolean b1 t i || evalBoolean b2 t i
+evalBoolean (BoolExpr b1 BoolXOR b2) t i = evalBoolean b1 t i /= evalBoolean b2 t i
 evalBoolean (BoolNOT b) t i = not (evalBoolean b t i)
 evalBoolean BoolTrue _ _ = True
 evalBoolean BoolFalse _ _ = False
 evalBoolean (BoolComp comparison) tables row = evalBoolComp comparison tables row
 
 evalBoolComp :: Comparison -> [Table] -> Int -> Bool
-evalBoolComp (StringComp s1 s2) t row = (evalString s1 t row) == (evalString s2 t row)
-evalBoolComp (IntEq number1 number2) _ row = (evalInt number1 row) == (evalInt number2 row)
-evalBoolComp (IntGT number1 number2) _ row = (evalInt number1 row) > (evalInt number2 row)
-evalBoolComp (IntLT number1 number2) _ row = (evalInt number1 row) < (evalInt number2 row)
+evalBoolComp (StringComp s1 s2) t row = evalString s1 t row == evalString s2 t row
+evalBoolComp (IntEq number1 number2) tables row = evalInt number1 tables row == evalInt number2 tables row
+evalBoolComp (IntGT number1 number2) tables row = evalInt number1 tables row > evalInt number2 tables row
+evalBoolComp (IntLT number1 number2) tables row = evalInt number1 tables row < evalInt number2 tables row
 
 evalString :: Str -> [Table] -> Int -> String
-evalString (Number x) t row = (snd (getColumn x (t!!0)))!!row -- ASSUME THIS ONE ONLY HAPPENS FOR SINGLE TABLE
-evalString (SpecNumber x tabIndex) t row = (snd (getColWithName x tabIndex t))!!row
+evalString (Number x) tables row = case tables of
+    (table:_) -> snd (getColumn x [table]) !! row
+    [] -> error "No tables available to evaluate the number."
+evalString (SpecNumber x tabIndex) t row = snd (getColWithIndex x tabIndex t) !! row
 evalString (Name x) _ _ = x
+evalString (Quote _) _ _ = error "Quote pattern not implemented in evalString."
 
 evalInt :: IntCalc -> [Table] -> Int -> Int
 evalInt (CountLength str) t row = length (evalString str t row) --countLength (evalColumn col)
 evalInt (Digit x) _ _ = x
-evalInt (CharOrdOfCol col) t i = col -- TODO
-evalInt (IntAdd x1 x2) t i = (evalInt x1 t i) + (evalInt x2 t i)
-evalInt (IntSub x1 x2) t i = (evalInt x1 t i) - (evalInt x2 t i)
-evalInt (IntMul x1 x2) t i = (evalInt x1 t i) * (evalInt x2 t i)
-evalInt (IntDiv x1 x2) t i = (evalInt x1 t i) / (evalInt x2 t i)
-evalInt (IntPow x1 x2) t i = (evalInt x1 t i) ^ (evalInt x2 t i)
+evalInt (CharOrdOfCol col) t i = ord (head (evalString col t i))
+evalInt (IntAdd x1 x2) t i = evalInt x1 t i + evalInt x2 t i
+evalInt (IntSub x1 x2) t i = evalInt x1 t i - evalInt x2 t i
+evalInt (IntMul x1 x2) t i = evalInt x1 t i * evalInt x2 t i
+evalInt (IntDiv x1 x2) t i = evalInt x1 t i `div` evalInt x2 t i
+evalInt (IntPow x1 x2) t i = evalInt x1 t i ^ evalInt x2 t i
 
--- out stores the current output
-evalAs :: [Outputs] -> [ColumnType] -> [ColumnType] -> [ColumnType] -- This needs to return [ColumnType]
-evalAs [] result out = out
-evalAs ((OutputCols number):rest) result out | number <= length result = evalAs rest result (out ++ [result!!(number-1)])
-    | otherwise = error "Index out of bounds"
---evalAs ((OutputCols []):rest) result out = evalAs rest result
---evalAs ((OutputCols (col:cols)):rest) result out = evalAs (OutputCols cols) result (out ++ (modifyOut col result))
-evalAs ((OutputString str):rest) result out = evalAs rest result (out ++ [(0, [str])])
+evalOptionals :: [Optional] -> [ColumnType] -> [Table] -> IO [ColumnType]
+evalOptionals [] result _ = return result
+evalOptionals (x:xs) result tables = do
+    newResult <- evalOptional x result tables
+    evalOptionals xs newResult tables
 
-evalOrder :: Order -> [ColumnType] -> IO [ColumnType]
-evalOrder OrderByAsc result = return result -- sort result -- SORT
-evalOrder OrderByDesc result = return result --reverse (sort result) SORT
-evalOrder (NestedOrder calc order) result = return result -- TODO
-evalOrder (OrderCalc calc) result = return result -- TODO
+evalOptional :: Optional -> [ColumnType] -> [Table] -> IO [ColumnType]
+evalOptional (WhenCondition boolean) columns tables = return (processWhen boolean columns tables)
+evalOptional (Store filename) columns _ = do
+    _ <- storeFile filename (columnToString columns)
+    return columns
+evalOptional (AsExpr outputMod) columns _ = return (evalAs outputMod columns [])
+evalOptional (OrderAs order) columns _ = return (evalOrder order columns)
+evalOptional (GroupAs theGroup) columns _ = return $ concat (groupBy (evalGroup theGroup) columns)
 
+processWhen :: Boolean -> [ColumnType] -> [Table] -> [ColumnType]
+processWhen b col tables = map filterColumn col
+    where filterColumn (colIndex, x) = (colIndex, [v | (ind, v) <- zip [0..] x, ind `elem` keepIndices])
+          keepIndices = [i | i <- [0..len - 1], evalBoolean b tables i] -- Rows to keep
+          len = if null col then 0 else length (snd (head col))
 
--- Helper methods are here. 
--- I expect they'll be used elsewhere so they're separate
-
--- Type reminder
--- type Table = (Int, [[String]])
--- type ColumnType = (Int, [String])
-getColumn :: Int -> Table -> ColumnType
-getColumn x null = null
-getColumn x table = (x, map (!! x) (snd table))
-
-getColWithName :: Int -> Int -> [Table] -> ColumnType
-getColWithName x tabIndex [] = error "Index out of bounds"
-getColWithName x 1 (table:rest) = getColumn x table
-getColWithName x tabIndex (table:rest) = getColWithName x (tabIndex - 1) rest
+columnToString :: [ColumnType] -> [[String]]
+columnToString columns = transpose [str | (_, str) <- columns]
 
 storeFile :: String -> [[String]] -> IO [[String]]
 storeFile filename result = do
     writeFile filename (toOutputForm result)
     return result
 
-countLength :: String -> Int
-countLength result = length result
+toOutputForm :: [[String]] -> String
+toOutputForm out = intercalate "\n" (map (intercalate ",") out)
 
-columnToString :: [ColumnType] -> [[String]]
-columnToString columns = transpose [str | (_, str) <- columns]
+evalAs :: [Outputs] -> [ColumnType] -> [ColumnType] -> [ColumnType] -- This needs to return [ColumnType]
+evalAs [] _ out = out
+evalAs ((OutputQuote _):_) _ _ = error "OutputQuote pattern not implemented in evalAs."
+evalAs ((OutputCols number):rest) result out | number <= length result = evalAs rest result (out ++ [result!!(number-1)])
+    | otherwise = error "Index out of bounds"
+--evalAs ((OutputCols []):rest) result out = evalAs rest result
+--evalAs ((OutputCols (col:cols)):rest) result out = evalAs (OutputCols cols) result (out ++ (modifyOut col result))
+evalAs ((OutputString str):rest) result out = evalAs rest result (out ++ [(0, [str])])
 
-evalStmt :: Statement -> IO [String]
-evalStmt (SelectStmt selection tabs optionals) = do
-    tables <- evalTables tabs
-    result <- evalSelection selection tables
-    result <- evalOptionals optionals result
+evalOrder :: Order -> [ColumnType] -> [ColumnType]
+evalOrder OrderByAsc result = result -- sort result -- SORT
+evalOrder OrderByDesc result = result --reverse (sort result) SORT
+evalOrder (NestedOrder calc order) result = result -- TODO
+evalOrder (OrderCalc calc) result = result -- TODO
 
-evalTables :: Tables -> IO Table
-evalTables (LoadTable filename) = do
-    contents <- readFile filename
-    let rows = map (splitOn ",") (lines contents)
-    return (filename, rows)
-
-evalSelection :: Selection -> [Table] -> [Column]
-evalSelection SelectAll tables = tables
-evalSelection (SelectColumns columns) tables = map (evalColumns columns) tables
-
-evalColumns :: [Column] -> [Table] -> [ColumnType]
-evalColumns columns tables = do
-    let columnIndex = map (getColumnIndex columns) tables
-    let columnValues = map (getColumnValues columnIndex) tables
-    return (columnIndex, columnValues)
-
-evalOptionals :: [Optional] -> [Column] -> [Table] -> [String]
-evalOptionals 
-
-readCSV :: String -> IO Table
-readCSV filename = do
-    content <- readFile filename
-    let filenameWithoutExt = takeWhile (/= '.') filename
-    let rows = lines content
-    let header = words (head rows)
-    let dataRows = map words (tail rows)
-    return (filenameWithoutExt, header : dataRows)
+evalGroup :: Comparison -> ColumnType -> ColumnType -> Bool
+evalGroup theGroup (colIndex1, values1) (colIndex2, values2) =
+    evalBoolComp theGroup [] 0 && colIndex1 == colIndex2
