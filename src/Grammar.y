@@ -88,9 +88,9 @@ Column : INT { ColIndex $1 }
     | INT DOT INT { ColIndexTable $1 $3 }
 
 Tables : LOAD STRING { [LoadTable $2] }
-    | Tables TableExpr Tables { [TableOp $1 $2 $3] }
-    | Tables PLUS Tables { [TableConc $1 $3] }
-    | Tables TJoin Tables ON Comparison { [TableJoin $1 $2 $3 $5] }
+    | LPAREN Tables TableExpr Tables RPAREN { [TableOp $2 $3 $4] }
+    | LPAREN Tables PLUS Tables RPAREN { [TableConc $2 $4] }
+    | LPAREN Tables TJoin Tables ON Comparison RPAREN { [TableJoin $2 $3 $4 $6] }
     | Tables COMMA Tables { $1 ++ $3 }
 
 TableExpr : CARTESIAN { Cartesian }
