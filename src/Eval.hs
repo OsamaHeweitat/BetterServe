@@ -2,23 +2,11 @@ module Eval where
 import Grammar
 import qualified Data.Map as Map
 import System.IO
-import Data.List.Split (splitOn)
+import Data.List
 import Data.Char
 
-type Env = Map.Map String Value
 type Table = (Int, [[String]])
 type ColumnType = (Int, [String])
-
-data Value
-    = TableVal [[String]]
-    | StrVal String
-    | IntVal Int
-    | BoolVal Bool
-    deriving (Show, Eq)
-
--- Start
-eval :: Env -> Exp -> Int
-eval = undefined
 
 evalProgram :: Program -> String -> IO String
 evalProgram (Program []) result = do return result
@@ -78,38 +66,6 @@ evalTable (LoadTable filename) = do
     let rows = map (splitOn ",") (lines contents)
     return (filename, rows)
 
--- Define evalExp to convert the Table into a Value if needed
-evalExp :: Env -> Exp -> IO Value
-evalExp env (SelectColumns cols) = do
-    let table = getTableFromEnv env
-    let result = selectColumns cols table
-    return $ TableVal result
-
-evalExp env (TableOp cols exp) = do
-    val <- evalExp env exp
-    case val of
-        TableVal table -> return $ TableVal (selectColumns cols table)
-        _ -> error "Expected a table in TableOp"
-
-evalExp env (TableJoin e1 e2) = do
-    val1 <- evalExp env e1
-    val2 <- evalExp env e2
-    case (val1, val2) of
-        (TableVal t1, TableVal t2) -> return $ TableVal (joinTables t1 t2)
-        _ -> error "Expected two tables in TableJoin"
-
-evalExp env (TableConc e1 e2) = do
-    val1 <- evalExp env e1
-    val2 <- evalExp env e2
-    case (val1, val2) of
-        (TableVal t1, TableVal t2) -> return $ TableVal (t1 ++ t2)
-        _ -> error "Expected two tables in TableConc"
-
-getTableFromEnv :: Env -> [[String]]
-getTableFromEnv env = case Map.lookup "table" env of
-    Just (TableVal t) -> t
-    _ -> error "Table not found in environment"
-
 -- Select specific columns
 selectColumns :: [Int] -> [[String]] -> [[String]]
 selectColumns cols table = map (\row -> [row !! col | col <- cols]) table
@@ -131,7 +87,14 @@ evalColumns (x:xs) tables = (evalColumn x tables) : (evalColumns xs tables)
 evalColumn :: Column -> [Table] -> [ColumnType]
 evalColumn (ColIndex x) tables = [getColumn x tables]
 evalColumn (ColIndexTable x tabIndex) tables = [getColWithName x tabIndex tables]
-evalColumn (IfStmt cols1 boolExpr cols2) tables = if (evalBoolean boolExpr) then (evalColumns cols1 tables) else (evalColumns cols2 tables)
+evalColumn (IfStmt col1s boolExpr col2s) tables = [ (x, [ if (evalBoolean boolExpr tables i) 
+    then col1!!i else col2!!i | i <- [0..rows - 1] ]) | ((x, col1), (_, col2)) <- zip col1Vals col2Vals ]
+    where
+        col1Vals = evalColumns col1s tables
+        col2Vals = evalColumns col2s tables
+        rows = case col1Vals of
+            (_, vals):_ -> length vals
+            _ -> error "No value in column"
 
 -- Evaluating the optionals starts here
 
@@ -144,7 +107,7 @@ evalOptionals (x:xs) result tables = do
 
 --evalOptional optional result
 evalOptional :: Optional -> [ColumnType] -> [Table] -> IO [ColumnType]
-evalOptional (WhenCondition boolean) columns tables = return (processWhen boolean columns table)
+evalOptional (WhenCondition boolean) columns tables = return (processWhen boolean columns tables)
 evalOptional (Store filename) columns tables = do 
     _ <- (storeFile filename (columnToString columns))
     return columns
@@ -155,10 +118,13 @@ evalOptional (GroupAs group) columns tables = (concat (groupBy (evalGroup group)
 -- For each line in each column, it checks whether it's inlcuded in the output
 -- If it is, add it to the list
 processWhen :: Boolean -> [ColumnType] -> [Table] -> [ColumnType]
-processWhen b col tables = map filterColumn col
-    where filterColumn (colIndex, x) = (colIndex, [v | (ind, v) <- zip [0..] x, ind `elem` keepIndices])
-          keepIndices = [i | i <- [0..len - 1], evalBoolean b tables i] -- Rows to keep
-          len = length (snd col)
+processWhen b cols tables = zip colIndices filterCols
+    where colIndices = map fst cols
+          colData = map snd cols
+          rows = transpose colData -- [[String]]
+          keepIndices = [i | (i, row) <- zip [0..] rows, evalBoolean b tables i] -- Rows to keep
+          filterRows = [row | (i, row) <- zip [0..] rows, i `elem` keepIndices]
+          filterCols = transpose filterRows
 
 evalBoolean :: Boolean -> [Table] -> Int -> Bool
 evalBoolean (BoolExpr b1 (BoolAND) b2) t i = (evalBoolean b1 t i) && (evalBoolean b2 t i)
@@ -197,8 +163,6 @@ evalAs :: [Outputs] -> [ColumnType] -> [ColumnType] -> [ColumnType] -- This need
 evalAs [] result out = out
 evalAs ((OutputCols number):rest) result out | number <= length result = evalAs rest result (out ++ [result!!(number-1)])
     | otherwise = error "Index out of bounds"
---evalAs ((OutputCols []):rest) result out = evalAs rest result
---evalAs ((OutputCols (col:cols)):rest) result out = evalAs (OutputCols cols) result (out ++ (modifyOut col result))
 evalAs ((OutputString str):rest) result out = evalAs rest result (out ++ [(0, [str])])
 
 evalOrder :: Order -> [ColumnType] -> [ColumnType]
@@ -228,20 +192,6 @@ countLength result = length result
 columnToString :: [ColumnType] -> [[String]]
 columnToString columns = transpose [str | (_, str) <- columns]
 
-
-------------------------------------
-
---evalTables :: Tables -> [Table]
---evalTables (LoadTable filename) = do
---    contents <- readFile filename
---    let rows = map (splitOn ",") (lines contents)
---    return [(filename, rows)]
-
---evalColumns :: [Column] -> [Table] -> [ColumnType]
---evalColumns columns tables = do
---    let columnIndex = map (getColumnIndex columns) tables
---    let columnValues = map (getColumnValues columnIndex) tables
---    return (columnIndex, columnValues)
 
 readCSV :: String -> IO Table
 readCSV filename = do
