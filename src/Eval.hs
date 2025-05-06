@@ -61,7 +61,7 @@ evalTable tableIndex (LoadTable filename) = do
     if all (== head arities) arities
         then putStrLn "CSV file has consistent arity.\n\n"
         else error "CSV file has inconsistent arity."
-    
+
     let rows = map (splitOn ",") (lines contents)
     return (tableIndex, rows)
 
@@ -72,14 +72,14 @@ evalTable tableIndex (TableOp tables1 expr tables2) = do
     evalTables1 <- evalTables tableIndex tables1
     evalTables2 <- evalTables (tableIndex + length tables1) tables2
     let result
-            | expr == Cartesian = 
+            | expr == Cartesian =
                 (tableIndex, [row1 ++ row2 | (_, rows1) <- evalTables1, row1 <- rows1, (_, rows2) <- evalTables2, row2 <- rows2])
-            | expr == Union = 
+            | expr == Union =
                 (tableIndex, concatMap snd evalTables1 ++ concatMap snd evalTables2)
-            | expr == Intersect =  
+            | expr == Intersect =
                 (tableIndex, [row1 | (_, rows1) <- evalTables1, row1 <- rows1, (_, rows2) <- evalTables2, row2 <- rows2, row1 == row2])
     return result
-        
+
 evalTable _ (TableConc _ _) = error "TableConc not implemented"
 evalTable _ (TableJoin {}) = error "TableJoin not implemented"
 
@@ -91,11 +91,9 @@ evalEnd final Output = do
     return printedLine
 
 evalSelection :: Selection -> [Table] -> IO [ColumnType]
-evalSelection SelectAll tables = return (allTablesToColumns tables)
-    where
-        allTablesToColumns :: [Table] -> [ColumnType]
-        allTablesToColumns [] = []
-        allTablesToColumns ((tableIndex, rows):rest) = (tableIndex, concat rows) : allTablesToColumns rest
+evalSelection SelectAll tables = do
+    let strings = evalColumns (map ColIndex [0..length tables]) tables
+    return (strings)
 evalSelection (SelectColumns cols) tables = do
     let strings = evalColumns cols tables
     return (zip [0..] (map snd strings))
@@ -107,7 +105,7 @@ evalColumns (x:xs) tables = evalColumn x tables ++ evalColumns xs tables
 evalColumn :: Grammar.Column -> [Table] -> [ColumnType]
 evalColumn (ColIndex x) tables = [getColumn x tables]
 evalColumn (ColIndexTable x tabIndex) tables = [getColWithIndex x tabIndex tables]
-evalColumn (IfStmt col1s boolExpr col2s) tables = [ (x, [ if (evalBoolean boolExpr tables i) 
+evalColumn (IfStmt col1s boolExpr col2s) tables = [ (x, [ if (evalBoolean boolExpr tables i)
     then col1!!i else col2!!i | i <- [0..rows - 1] ]) | ((x, col1), (_, col2)) <- zip col1Vals col2Vals ]
     where
         col1Vals = evalColumns col1s tables
