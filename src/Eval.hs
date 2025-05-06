@@ -149,7 +149,7 @@ evalString (Number x) tables row = case tables of
     [] -> error "No tables available to evaluate the number."
 evalString (SpecNumber x tabIndex) t row = snd (getColWithIndex x tabIndex t) !! row
 evalString (Name x) _ _ = x
-evalString (Quote (Name x)) _ _ = filter (/='\"') x
+evalString (Quote x) _ _ = filter (/='\"') x
 
 evalInt :: IntCalc -> [Table] -> Int -> Int
 evalInt (CountLength str) t row = length (evalString str t row) --countLength (evalColumn col)
