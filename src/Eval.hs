@@ -181,7 +181,8 @@ toOutputForm out = intercalate "\n" (map (intercalate ",") out)
 
 -- acc stores the current output
 evalAs :: [Outputs] -> [ColumnType] -> [ColumnType] -> [ColumnType] -- This needs to return [ColumnType]
-evalAs [] result acc = acc
+evalAs [] _ acc = acc
+evalAs ((OutputQuote _):_) _ _ = error "OutputQuote pattern not implemented in evalAs."
 evalAs ((OutputCols number):rest) result acc | number <= length result = evalAs rest result ([result!!(number-1)] ++ acc)
     | otherwise = error "Index out of bounds"
 evalAs ((OutputString str):rest) result acc = evalAs rest result ([(0, [str])] ++ acc)
