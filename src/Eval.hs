@@ -36,12 +36,12 @@ evalProgram (Program (statement:rest)) result = do
 
 evalStmt :: Statement -> IO [ColumnType]
 evalStmt (SelectOpt selection tabs optionals end) = do
-    tables <- evalTables 1 tabs
+    tables <- evalTables 0 tabs
     result <- evalSelection selection tables
     final <- evalOptionals optionals result tables
     evalEnd final end
 evalStmt (SelectStmt selection tabs end) = do -- Version without optionals
-    tables <- evalTables 1 tabs
+    tables <- evalTables 0 tabs
     result <- evalSelection selection tables
     evalEnd result end
 evalStmt (CommentStmt comment) = do
@@ -64,9 +64,12 @@ evalTable _ (TableOp {}) = error "TableOp not implemented"
 evalTable _ (TableConc _ _) = error "TableConc not implemented"
 evalTable _ (TableJoin {}) = error "TableJoin not implemented"
 
-evalEnd :: [ColumnType] -> End -> IO [ColumnType]
-evalEnd final End = return final
-evalEnd final Output = return final
+evalEnd :: IO [ColumnType] -> End -> IO [ColumnType]
+evalEnd final End = final
+evalEnd final Output = do
+    _ <- putStrLn (toOutputForm (columnToRows final))
+    printedLine <- final
+    return printedLine
 
 evalSelection :: Selection -> [Table] -> IO [ColumnType]
 evalSelection SelectAll tables = return (allTablesToColumns tables)
@@ -85,11 +88,14 @@ evalColumns (x:xs) tables = evalColumn x tables : evalColumns xs tables
 evalColumn :: Grammar.Column -> [Table] -> ColumnType
 evalColumn (ColIndex x) tables = getColumn x tables
 evalColumn (ColIndexTable x tabIndex) tables = getColWithIndex x tabIndex tables
-evalColumn (IfStmt cols1 boolExpr cols2) tables =
-    let columns = if evalBoolean boolExpr tables 0
-                  then evalColumns cols1 tables
-                  else evalColumns cols2 tables
-    in (0, concatMap snd columns)
+evalColumn (IfStmt col1s boolExpr col2s) tables = [ (x, [ if (evalBoolean boolExpr tables i) 
+    then col1!!i else col2!!i | i <- [0..rows - 1] ]) | ((x, col1), (_, col2)) <- zip col1Vals col2Vals ]
+    where
+        col1Vals = evalColumns col1s tables
+        col2Vals = evalColumns col2s tables
+        rows = case col1Vals of
+            (_, vals):_ -> length vals
+            _ -> error "No value in column"
 
 getColumn :: Int -> [Table] -> ColumnType
 getColumn colIndex tables = (colIndex, concatMap (getColValues colIndex) tables)
@@ -152,32 +158,33 @@ evalOptional (AsExpr outputMod) columns _ = return (evalAs outputMod columns [])
 evalOptional (OrderAs order) columns _ = return (evalOrder order columns)
 evalOptional (GroupAs theGroup) columns _ = return $ concat (groupBy (evalGroup theGroup) columns)
 
--- Statement is like GET 1, 2 FROM table WHEN 1 == 2
+-- For each line in each column, it checks whether it's inlcuded in the output
+-- If it is, add it to the list
 processWhen :: Boolean -> [ColumnType] -> [Table] -> [ColumnType]
-processWhen b columns tables =
-    [(colIndex, filter (evalBoolean b tables . indexx) rows) | (colIndex, rows) <- columns]
-    where
-        indexx row = fromMaybe 0 (elemIndex row (concatMap snd columns))
+processWhen b cols tables = zip colIndices filterCols
+    where colIndices = map fst cols
+          colData = map snd cols
+          rows = transpose colData -- [[String]]
+          keepIndices = [i | (i, row) <- zip [0..] rows, evalBoolean b tables i] -- Rows to keep
+          filterRows = [row | (i, row) <- zip [0..] rows, i `elem` keepIndices]
+          filterCols = transpose filterRows
 
 columnToString :: [ColumnType] -> [[String]]
 columnToString columns = transpose [str | (_, str) <- columns]
 
-storeFile :: String -> [[String]] -> IO [[String]]
+storeFile :: String -> [[String]] -> IO ()
 storeFile filename result = do
     writeFile filename (toOutputForm result)
-    return result
 
 toOutputForm :: [[String]] -> String
 toOutputForm out = intercalate "\n" (map (intercalate ",") out)
 
+-- acc stores the current output
 evalAs :: [Outputs] -> [ColumnType] -> [ColumnType] -> [ColumnType] -- This needs to return [ColumnType]
-evalAs [] _ out = out
-evalAs ((OutputQuote _):_) _ _ = error "OutputQuote pattern not implemented in evalAs."
-evalAs ((OutputCols number):rest) result out | number <= length result = evalAs rest result (out ++ [result!!(number-1)])
+evalAs [] result acc = acc
+evalAs ((OutputCols number):rest) result acc | number <= length result = evalAs rest result ([result!!(number-1)] ++ acc)
     | otherwise = error "Index out of bounds"
---evalAs ((OutputCols []):rest) result out = evalAs rest result
---evalAs ((OutputCols (col:cols)):rest) result out = evalAs (OutputCols cols) result (out ++ (modifyOut col result))
-evalAs ((OutputString str):rest) result out = evalAs rest result (out ++ [(0, [str])])
+evalAs ((OutputString str):rest) result acc = evalAs rest result ([(0, [str])] ++ acc)
 
 evalOrder :: Order -> [ColumnType] -> [ColumnType]
 evalOrder OrderByAsc result = result -- sort result -- SORT
