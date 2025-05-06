@@ -149,7 +149,7 @@ evalString (Number x) tables row = case tables of
     [] -> error "No tables available to evaluate the number."
 evalString (SpecNumber x tabIndex) t row = snd (getColWithIndex x tabIndex t) !! row
 evalString (Name x) _ _ = x
-evalString (Quote x) _ _ = filter (/='\"') x
+evalString (Quote (Name x)) _ _ = filter (/='\"') x
 
 evalInt :: IntCalc -> [Table] -> Int -> Int
 evalInt (CountLength str) t row = length (evalString str t row) --countLength (evalColumn col)
@@ -202,7 +202,7 @@ toOutputForm out = intercalate "\n" result
 -- acc stores the current output
 evalAs :: [Outputs] -> [ColumnType] -> [ColumnType] -> [ColumnType] -- This needs to return [ColumnType]
 evalAs [] _ acc = acc
-evalAs ((OutputQuote x):rest) r acc = evalAs ((OutputString (filter (/='\n') x)):rest) r acc
+evalAs ((OutputQuote x):rest) r acc = evalAs ((OutputString (filter (/='\n') (show x))):rest) r acc
 evalAs ((OutputCols number):rest) result acc | number <= length result = evalAs rest result (acc ++ [result!!number])
     | otherwise = error "Index out of bounds"
 evalAs ((OutputString str):rest) result acc = evalAs rest result (acc ++ [(0, [str | x <- [0..rows-1]])])
