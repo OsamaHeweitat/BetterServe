@@ -77,8 +77,67 @@ evalTable tableIndex (TableOp tables1 expr tables2) = do
                 (tableIndex, [row1 | (_, rows1) <- evalTables1, row1 <- rows1, (_, rows2) <- evalTables2, row2 <- rows2, row1 == row2])
     return result
 
-evalTable _ (TableConc _ _) = error "TableConc not implemented"
-evalTable _ (TableJoin {}) = error "TableJoin not implemented"
+-- Concatenates 2 tables 
+evalTable tableIndex (TableConc tables1 tables2) = do
+    evalTables1 <- evalTables tableIndex tables1
+    evalTables2 <- evalTables (tableIndex + length tables1) tables2
+    let allRows1 = concatMap snd evalTables1
+        allRows2 = concatMap snd evalTables2
+    let arity1 = map length allRows1
+        arity2 = map length allRows2
+    if null arity1 || null arity2 || head arity1 == head arity2
+        then return (tableIndex, allRows1 ++ allRows2)
+        else error "Cannot concatenate tables with mismatched arity."
+
+-- TableJoin for InnerJoin
+evalTable tableIndex (TableJoin InnerJoin colIndex tables1 tables2) = do
+    evalTables1 <- evalTables tableIndex tables1
+    evalTables2 <- evalTables (tableIndex + length tables1) tables2
+    let rows1 = concatMap snd evalTables1
+        rows2 = concatMap snd evalTables2
+    let joinedRows = [row1 ++ deleteAt colIndex row2 | row1 <- rows1, row2 <- rows2,
+                       safeIndex row1 colIndex == safeIndex row2 colIndex]
+    return (tableIndex, joinedRows)
+    where
+        deleteAt i xs = let (l,r) = splitAt i xs in l ++ drop 1 r
+        safeIndex xs i = if i < length xs then Just (xs !! i) else Nothing
+
+-- TableJoin for LeftJoin
+evalTable tableIndex (TableJoin LeftJoin colIndex tables1 tables2) = do
+    evalTables1 <- evalTables tableIndex tables1
+    evalTables2 <- evalTables (tableIndex + length tables1) tables2
+    let rows1 = concatMap snd evalTables1
+        rows2 = concatMap snd evalTables2
+    let joinedRows = [row1 ++ (fromMaybe (replicate (length (head rows2)) "")) row2 | row1 <- rows1, 
+                       let matchedRow = find (\row2 -> safeIndex row1 colIndex == safeIndex row2 colIndex) rows2, 
+                       let row2 = fromMaybe [] matchedRow]
+    return (tableIndex, joinedRows)
+
+--TableJoin for RightJoin 
+evalTable tableIndex (TableJoin RightJoin colIndex tables1 tables2) = do
+    evalTables1 <- evalTables tableIndex tables1
+    evalTables2 <- evalTables (tableIndex + length tables1) tables2
+    let rows1 = concatMap snd evalTables1
+        rows2 = concatMap snd evalTables2
+    let joinedRows = [ (fromMaybe (replicate (length (head rows1)) "")) row1 ++ row2 | row2 <- rows2, 
+                       let matchedRow = find (\row1 -> safeIndex row1 colIndex == safeIndex row2 colIndex) rows1, 
+                       let row1 = fromMaybe [] matchedRow]
+    return (tableIndex, joinedRows)
+
+-- TableJoin for FullJoin
+evalTable tableIndex (TableJoin FullJoin colIndex tables1 tables2) = do
+    evalTables1 <- evalTables tableIndex tables1
+    evalTables2 <- evalTables (tableIndex + length tables1) tables2
+    let rows1 = concatMap snd evalTables1
+        rows2 = concatMap snd evalTables2
+    let joinedRows = [ (fromMaybe (replicate (length (head rows1)) "")) row1 ++ (fromMaybe (replicate (length (head rows2)) "")) row2
+                      | row1 <- rows1, let matchedRow = find (\row2 -> safeIndex row1 colIndex == safeIndex row2 colIndex) rows2, 
+                        let row2 = fromMaybe [] matchedRow ]
+                     ++
+                     [ row1 ++ (fromMaybe (replicate (length (head rows1)) "")) row2 
+                       | row2 <- rows2, let matchedRow = find (\row1 -> safeIndex row2 colIndex == safeIndex row1 colIndex) rows1, 
+                         let row1 = fromMaybe [] matchedRow]
+    return (tableIndex, joinedRows)
 
 evalEnd :: IO [ColumnType] -> End -> IO [ColumnType]
 evalEnd final End = final
