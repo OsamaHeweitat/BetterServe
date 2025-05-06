@@ -213,8 +213,8 @@ evalAs ((OutputString str):rest) result acc = evalAs rest result (acc ++ [(0, [s
     where rows = length (snd (head result))
 
 evalOrder :: Order -> [ColumnType] -> [ColumnType]
-evalOrder OrderByAsc result = result -- sort result -- SORT
-evalOrder OrderByDesc result = result --reverse (sort result) SORT
+evalOrder OrderByAsc result = zip (map fst result) (transpose (sort (columnToRows result)))
+evalOrder OrderByDesc result = zip (map fst result) (transpose (sortBy (flip compare) (columnToRows result)))
 evalOrder (NestedOrder calc order) result = result -- TODO
 evalOrder (OrderCalc calc) result = result -- TODO
 
