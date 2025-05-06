@@ -24,10 +24,10 @@ evalProgram :: Program -> String -> IO String
 evalProgram (Program []) result = return result
 evalProgram (Program (statement:rest)) result = do
     stmtLines <- evalStmt statement
-    putStrLn $ "Statement: " ++ show stmtLines
+    --putStrLn $ "Statement: " ++ show stmtLines
     let formatted = unlines (filter (not . null) (map (toCSVFormat . snd) stmtLines))
-    putStrLn $ "Formatted: " ++ formatted
-    putStrLn $ "Result: " ++ result
+    --putStrLn $ "Formatted: " ++ formatted
+    --putStrLn $ "Result: " ++ result
     -- evalProgram (Program rest) (result ++ "\n" ++ formatted)
     evalProgram (Program rest) (result ++ formatted)
     where
@@ -56,6 +56,12 @@ evalTables tableIndex (table:rest) = do
 evalTable :: Int -> Tables -> IO Table
 evalTable tableIndex (LoadTable filename) = do
     contents <- readFile (filename ++ ".csv")
+    let rows = lines contents
+    let arities = map (length . splitOn ",") rows
+    if all (== head arities) arities
+        then putStrLn "CSV file has consistent arity.\n\n"
+        else error "CSV file has inconsistent arity."
+    
     let rows = map (splitOn ",") (lines contents)
     return (tableIndex, rows)
 
@@ -92,7 +98,7 @@ evalSelection SelectAll tables = return (allTablesToColumns tables)
         allTablesToColumns ((tableIndex, rows):rest) = (tableIndex, concat rows) : allTablesToColumns rest
 evalSelection (SelectColumns cols) tables = do
     let strings = evalColumns cols tables
-    return (zip [0..] (map (:[]) (concatMap snd strings)))
+    return (zip [0..] (map snd strings))
 
 evalColumns :: [Grammar.Column] -> [Table] -> [ColumnType]
 evalColumns [] _ = []
@@ -116,7 +122,7 @@ getColumn :: Int -> [Table] -> ColumnType
 getColumn colIndex tables = (colIndex, concatMap (getColValues colIndex) tables)
     where
         getColValues :: Int -> Table -> [String]
-        getColValues columnIndex (_, rows) = map (!! (columnIndex - 1)) rows
+        getColValues columnIndex (_, rows) = map (!! columnIndex) rows
 
 getColWithIndex :: Int -> Int -> [Table] -> ColumnType
 getColWithIndex colIndex tabIndex tables = (colIndex, concatMap (getColValues colIndex) filteredTables)
@@ -167,7 +173,7 @@ evalOptionals (x:xs) result tables = do
 evalOptional :: Optional -> [ColumnType] -> [Table] -> IO [ColumnType]
 evalOptional (WhenCondition boolean) columns tables = return (processWhen boolean columns tables)
 evalOptional (Store filename) columns _ = do
-    _ <- storeFile filename (columnToRows columns)
+    _ <- storeFile filename  (columnToRows columns)
     return columns
 evalOptional (AsExpr outputMod) columns _ = return (evalAs outputMod columns [])
 evalOptional (OrderAs order) columns _ = return (evalOrder order columns)
@@ -189,10 +195,11 @@ columnToRows columns = transpose [str | (_, str) <- columns]
 
 storeFile :: String -> [[String]] -> IO ()
 storeFile filename result = do
-    writeFile filename (toOutputForm result)
+    writeFile (filename ++ ".csv") (toOutputForm result)
 
 toOutputForm :: [[String]] -> String
-toOutputForm out = intercalate "\n" (map (intercalate ",") out)
+toOutputForm out = intercalate "\n" result
+    where result = (map (intercalate ",") out)
 
 -- acc stores the current output
 evalAs :: [Outputs] -> [ColumnType] -> [ColumnType] -> [ColumnType] -- This needs to return [ColumnType]
