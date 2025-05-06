@@ -9,6 +9,6 @@ module Main where
         putStrLn "Enter the filenfame of the SQL-like script:"
         filename <- getLine
         result <- eval filename
-        putStrLn "Result:"
-        putStrLn result
+        --putStrLn "Result:"
+        --putStrLn result
         putStrLn "Done."
