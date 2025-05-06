@@ -66,7 +66,15 @@ evalTable tableIndex (LoadTable filename) = do
     
     let rows = map (splitOn ",") (lines contents)
     return (tableIndex, rows)
-evalTable _ (TableOp {}) = error "TableOp not implemented"
+
+evalTable tableIndex (TableOp tabless expr tables) = do
+    let evalTablesIO = evalTables tableIndex tabless
+    tablesEvaluated <- evalTablesIO
+    let result = evalBoolean expr tablesEvaluated 0
+    if result
+        then evalTable tableIndex (head tables)
+        else error "TableOp condition not met"
+        
 evalTable _ (TableConc _ _) = error "TableConc not implemented"
 evalTable _ (TableJoin {}) = error "TableJoin not implemented"
 
