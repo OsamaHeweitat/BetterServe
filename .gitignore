@@ -11,4 +11,4 @@ src/Grammar.o
 src/Tokens.hi
 src/Tokens.o
 src/OldEval.hs
-A.csv
+*.csv

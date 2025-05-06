@@ -64,7 +64,19 @@ evalTable tableIndex (LoadTable filename) = do
     
     let rows = map (splitOn ",") (lines contents)
     return (tableIndex, rows)
-evalTable _ (TableOp {}) = error "TableOp not implemented"
+
+evalTable tableIndex (TableOp tables1 expr tables2) = do
+    putStrLn $ "TableOp: " ++ show expr
+    putStrLn $ "Tables1: " ++ show tables1
+    putStrLn $ "Tables2: " ++ show tables2
+    evalTables1 <- evalTables tableIndex tables1
+    evalTables2 <- evalTables (tableIndex + length tables1) tables2
+    let result
+            | expr == Cartesian = 
+            | expr == Union = 
+            | expr == Intersect = 
+    return (tablesEvaluated, result)
+        
 evalTable _ (TableConc _ _) = error "TableConc not implemented"
 evalTable _ (TableJoin {}) = error "TableJoin not implemented"
 
