@@ -89,54 +89,16 @@ evalTable tableIndex (TableConc tables1 tables2) = do
         else error "Cannot concatenate tables with mismatched arity."
 
 -- TableJoin for InnerJoin
-evalTable tableIndex (TableJoin tables1 InnerJoin tables2 colIndex) = do
-    evalTables1 <- evalTables tableIndex tables1
-    evalTables2 <- evalTables (tableIndex + length tables1) tables2
-    let rows1 = concatMap snd evalTables1
-        rows2 = concatMap snd evalTables2
-    let joinedRows = [row1 ++ deleteAt colIndex row2 | row1 <- rows1, row2 <- rows2,
-                       safeIndex row1 colIndex == safeIndex row2 colIndex]
-    return (tableIndex, joinedRows)
-    where
-        deleteAt i xs = let (l,r) = splitAt i xs in l ++ drop 1 r
-        safeIndex xs i = if i < length xs then Just (xs !! i) else Nothing
 
--- TableJoin for LeftJoin
-evalTable tableIndex (TableJoin tables1 LJoin tables2 colIndex) = do
-    evalTables1 <- evalTables tableIndex tables1
-    evalTables2 <- evalTables (tableIndex + length tables1) tables2
-    let rows1 = concatMap snd evalTables1
-        rows2 = concatMap snd evalTables2
-    let joinedRows = [row1 ++ (fromMaybe (replicate (length (head rows2)) "")) row2 | row1 <- rows1, 
-                       let matchedRow = find (\row2 -> safeIndex row1 colIndex == safeIndex row2 colIndex) rows2, 
-                       let row2 = fromMaybe [] matchedRow]
-    return (tableIndex, joinedRows)
 
---TableJoin for RightJoin 
-evalTable tableIndex (TableJoin tables1 RJoin tables2 colIndex) = do
-    evalTables1 <- evalTables tableIndex tables1
-    evalTables2 <- evalTables (tableIndex + length tables1) tables2
-    let rows1 = concatMap snd evalTables1
-        rows2 = concatMap snd evalTables2
-    let joinedRows = [ (fromMaybe (replicate (length (head rows1)) "")) row1 ++ row2 | row2 <- rows2, 
-                       let matchedRow = find (\row1 -> safeIndex row1 colIndex == safeIndex row2 colIndex) rows1, 
-                       let row1 = fromMaybe [] matchedRow]
-    return (tableIndex, joinedRows)
+-- TableJoin for LeftJoin 
+
+
+-- TableJoin for RightJoin
+
 
 -- TableJoin for FullJoin
-evalTable tableIndex (TableJoin tables1 Join tables2 colIndex) = do
-    evalTables1 <- evalTables tableIndex tables1
-    evalTables2 <- evalTables (tableIndex + length tables1) tables2
-    let rows1 = concatMap snd evalTables1
-        rows2 = concatMap snd evalTables2
-    let joinedRows = [ (fromMaybe (replicate (length (head rows1)) "")) row1 ++ (fromMaybe (replicate (length (head rows2)) "")) row2
-                      | row1 <- rows1, let matchedRow = find (\row2 -> safeIndex row1 colIndex == safeIndex row2 colIndex) rows2, 
-                        let row2 = fromMaybe [] matchedRow ]
-                     ++
-                     [ row1 ++ (fromMaybe (replicate (length (head rows1)) "")) row2 
-                       | row2 <- rows2, let matchedRow = find (\row1 -> safeIndex row2 colIndex == safeIndex row1 colIndex) rows1, 
-                         let row1 = fromMaybe [] matchedRow]
-    return (tableIndex, joinedRows)
+
 
 evalEnd :: IO [ColumnType] -> End -> IO [ColumnType]
 evalEnd final End = final
