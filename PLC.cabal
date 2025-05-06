@@ -42,7 +42,7 @@ library
   default-language: Haskell2010
 
 executable PLC-exe
-  main-is: Eval.hs
+  main-is: Main.hs
   other-modules:
       Paths_PLC
   autogen-modules:
@@ -60,19 +60,20 @@ executable PLC-exe
   default-language: Haskell2010
 
 executable EvalHS
-  main-is:             Eval.hs
+  main-is:             Main.hs
   hs-source-dirs:      src
-  build-depends:       base >= 4.7 && < 5, parsec
   build-depends:
       PLC
     , base >=4.7 && <5,
     split,
     containers,
     array,
+    directory,
     parsec
   default-language:    Haskell2010
   other-modules:       Grammar
                      , Tokens
+                     , Eval
 
 test-suite PLC-test
   type: exitcode-stdio-1.0

@@ -50,7 +50,7 @@ evalTables tableIndex (table:rest) = do
 
 evalTable :: Int -> Tables -> IO Table
 evalTable tableIndex (LoadTable filename) = do
-    contents <- readFile filename
+    contents <- readFile (filename ++ ".csv")
     let rows = map (splitOn ",") (lines contents)
     return (tableIndex, rows)
 evalTable _ (TableOp {}) = error "TableOp not implemented"
@@ -79,8 +79,8 @@ evalColumns [] _ = []
 evalColumns (x:xs) tables = evalColumn x tables ++ evalColumns xs tables
 
 evalColumn :: Grammar.Column -> [Table] -> [ColumnType]
-evalColumn (ColIndex x) tables = getColumn x tables
-evalColumn (ColIndexTable x tabIndex) tables = getColWithIndex x tabIndex tables
+evalColumn (ColIndex x) tables = [getColumn x tables]
+evalColumn (ColIndexTable x tabIndex) tables = [getColWithIndex x tabIndex tables]
 evalColumn (IfStmt col1s boolExpr col2s) tables = [ (x, [ if (evalBoolean boolExpr tables i) 
     then col1!!i else col2!!i | i <- [0..rows - 1] ]) | ((x, col1), (_, col2)) <- zip col1Vals col2Vals ]
     where
@@ -120,7 +120,7 @@ evalBoolComp (IntLT number1 number2) tables row = evalInt number1 tables row < e
 
 evalString :: Str -> [Table] -> Int -> String
 evalString (Number x) tables row = case tables of
-    (table:_) -> snd (getColumn x [table]) !! row
+    (table:_) -> snd (getColumn (x) [table]) !! row
     [] -> error "No tables available to evaluate the number."
 evalString (SpecNumber x tabIndex) t row = snd (getColWithIndex x tabIndex t) !! row
 evalString (Name x) _ _ = x
