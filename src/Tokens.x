@@ -68,6 +68,7 @@ $white+         ;
   "/"           { \p s -> TokenDiv p }
   "^"           { \p s -> TokenPow p }
   "NUM"         { \p s -> TokenNumber p }
+  \"[^\"]*\"    { \p s -> TokenAny p s }
   $digit+       { \p s -> TokenDigit p (read s) } 
   $alpha [$alpha $digit]*   { \p s -> TokenVar p s } 
 
@@ -115,7 +116,7 @@ data Token =
   TokenEq AlexPosn          |
   TokenGT AlexPosn          |
   TokenLT AlexPosn          |
-  TokenQuote AlexPosn      |
+  TokenQuote AlexPosn       |
   TokenLength AlexPosn      |
   TokenOrd AlexPosn         |
   TokenMinus AlexPosn       |
@@ -124,13 +125,15 @@ data Token =
   TokenPow AlexPosn         |
   TokenNumber AlexPosn      |
   TokenDigit AlexPosn Int   |
-  TokenVar AlexPosn String   
+  TokenVar AlexPosn String  |
+  TokenAny AlexPosn String
   deriving (Eq,Show) 
 
 tokenPosn :: Token -> String
 tokenPosn (TokenComment (AlexPn a l c) s) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenDigit (AlexPn a l c) i) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenVar (AlexPn a l c) s) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenAny (AlexPn a l c) s) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenSemicolon (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenGET (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenFROM (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
