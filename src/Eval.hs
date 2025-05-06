@@ -195,7 +195,9 @@ storeFile filename result = writeFile (filename ++ ".csv") (toOutputForm result)
 
 toOutputForm :: [[String]] -> String
 toOutputForm out = intercalate "\n" result
-    where result = map (intercalate ",") out
+    where 
+        result = map (intercalate "," . map cleanItem) out
+        cleanItem = reverse . dropWhile (== ' ') . reverse . dropWhile (== ' ')
 
 -- acc stores the current output
 evalAs :: [Outputs] -> [ColumnType] -> [ColumnType] -> [ColumnType] -- This needs to return [ColumnType]
