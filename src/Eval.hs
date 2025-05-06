@@ -84,12 +84,16 @@ evalEnd :: IO [ColumnType] -> End -> IO [ColumnType]
 evalEnd final End = final
 evalEnd final Output = do
     printedLine <- final
-    _ <- putStrLn (toOutputForm (columnToRows printedLine))
+    if not (null printedLine) then putStrLn (toOutputForm (columnToRows printedLine)) else putStr ""
     return printedLine
 
 evalSelection :: Selection -> [Table] -> IO [ColumnType]
 evalSelection SelectAll tables = do
-    let tableArity = length (head (snd (head tables)))
+    let tableArity = case tables of
+            ((_, rows):_) -> case rows of
+                (firstRow:_) -> length firstRow
+                [] -> 0
+            [] -> 0
     let this = map ColIndex [0..(tableArity - 1)]
     let strings = evalColumns this tables
     return strings
@@ -195,7 +199,7 @@ storeFile filename result = writeFile (filename ++ ".csv") (toOutputForm result)
 
 toOutputForm :: [[String]] -> String
 toOutputForm out = intercalate "\n" result
-    where 
+    where
         result = map (intercalate "," . map cleanItem) out
         cleanItem = reverse . dropWhile (== ' ') . reverse . dropWhile (== ' ')
 
@@ -217,3 +221,7 @@ evalOrder (OrderCalc calc) result = result -- TODO
 evalGroup :: Comparison -> ColumnType -> ColumnType -> Bool
 evalGroup theGroup (colIndex1, values1) (colIndex2, values2) =
     evalBoolComp theGroup [] 0 && colIndex1 == colIndex2
+
+safeHead :: [a] -> a
+safeHead [] = error "Empty list"
+safeHead (x:_) = x

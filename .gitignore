@@ -12,3 +12,5 @@ src/Tokens.hi
 src/Tokens.o
 src/OldEval.hs
 *.csv
+solutions/testfiles
+solutions/*.csv
