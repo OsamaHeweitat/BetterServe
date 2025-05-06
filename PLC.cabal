@@ -65,15 +65,17 @@ executable EvalHS
       Grammar
       Tokens
   hs-source-dirs:      src
-  build-depends:       base >= 4.7 && < 5, parsec
   build-depends:
     base >=4.7 && <5,
     split,
     containers,
     array,
-    parsec,
-    directory
+    directory,
+    parsec
   default-language:    Haskell2010
+  other-modules:       Grammar
+                     , Tokens
+                     , Eval
 
 test-suite PLC-test
   type: exitcode-stdio-1.0

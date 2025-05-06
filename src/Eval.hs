@@ -41,8 +41,7 @@ evalStmt (SelectOpt selection tabs optionals end) = do
     evalEnd (evalOptionals optionals result tables) end
 evalStmt (SelectStmt selection tabs end) = do -- Version without optionals
     tables <- evalTables 0 tabs
-    result <- evalSelection selection tables
-    evalEnd (return result) end
+    evalEnd (evalSelection selection tables) end
 evalStmt (CommentStmt comment) = do
     putStrLn $ "Comment: " ++ comment
     return []
@@ -57,13 +56,6 @@ evalTables tableIndex (table:rest) = do
 evalTable :: Int -> Tables -> IO Table
 evalTable tableIndex (LoadTable filename) = do
     contents <- readFile (filename ++ ".csv")
-    
-    let rows = lines contents
-    let arities = map (length . splitOn ",") rows
-    if all (== head arities) arities
-        then putStrLn "CSV file has consistent arity."
-        else error "CSV file has inconsistent arity."
-    
     let rows = map (splitOn ",") (lines contents)
     return (tableIndex, rows)
 
@@ -81,12 +73,9 @@ evalTable _ (TableJoin {}) = error "TableJoin not implemented"
 evalEnd :: IO [ColumnType] -> End -> IO [ColumnType]
 evalEnd final End = final
 evalEnd final Output = do
-    finalResult <- final
-    _ <- putStrLn (toOutputForm (columnToRows finalResult))
-    final
-    where
-        columnToRows :: [ColumnType] -> [[String]]
-        columnToRows columns = transpose [str | (_, str) <- columns]
+    printedLine <- final
+    _ <- putStrLn (toOutputForm (columnToRows printedLine))
+    return printedLine
 
 evalSelection :: Selection -> [Table] -> IO [ColumnType]
 evalSelection SelectAll tables = return (allTablesToColumns tables)
@@ -100,13 +89,13 @@ evalSelection (SelectColumns cols) tables = do
 
 evalColumns :: [Grammar.Column] -> [Table] -> [ColumnType]
 evalColumns [] _ = []
-evalColumns (x:xs) tables = evalColumn x tables : evalColumns xs tables
+evalColumns (x:xs) tables = evalColumn x tables ++ evalColumns xs tables
 
-evalColumn :: Grammar.Column -> [Table] -> ColumnType
-evalColumn (ColIndex x) tables = getColumn x tables
-evalColumn (ColIndexTable x tabIndex) tables = getColWithIndex x tabIndex tables
-evalColumn (IfStmt col1s boolExpr col2s) tables = 
-    (0, [if evalBoolean boolExpr tables i then col1 !! i else col2 !! i | i <- [0..rows - 1]])
+evalColumn :: Grammar.Column -> [Table] -> [ColumnType]
+evalColumn (ColIndex x) tables = [getColumn x tables]
+evalColumn (ColIndexTable x tabIndex) tables = [getColWithIndex x tabIndex tables]
+evalColumn (IfStmt col1s boolExpr col2s) tables = [ (x, [ if (evalBoolean boolExpr tables i) 
+    then col1!!i else col2!!i | i <- [0..rows - 1] ]) | ((x, col1), (_, col2)) <- zip col1Vals col2Vals ]
     where
         col1Vals = evalColumns col1s tables
         col2Vals = evalColumns col2s tables
@@ -146,7 +135,7 @@ evalBoolComp (IntLT number1 number2) tables row = evalInt number1 tables row < e
 
 evalString :: Str -> [Table] -> Int -> String
 evalString (Number x) tables row = case tables of
-    (table:_) -> snd (getColumn x [table]) !! row
+    (table:_) -> snd (getColumn (x) [table]) !! row
     [] -> error "No tables available to evaluate the number."
 evalString (SpecNumber x tabIndex) t row = snd (getColWithIndex x tabIndex t) !! row
 evalString (Name x) _ _ = x
@@ -171,7 +160,7 @@ evalOptionals (x:xs) result tables = do
 evalOptional :: Optional -> [ColumnType] -> [Table] -> IO [ColumnType]
 evalOptional (WhenCondition boolean) columns tables = return (processWhen boolean columns tables)
 evalOptional (Store filename) columns _ = do
-    _ <- storeFile filename (columnToString columns)
+    _ <- storeFile filename (columnToRows columns)
     return columns
 evalOptional (AsExpr outputMod) columns _ = return (evalAs outputMod columns [])
 evalOptional (OrderAs order) columns _ = return (evalOrder order columns)
@@ -188,8 +177,8 @@ processWhen b cols tables = zip colIndices filterCols
           filterRows = [row | (i, row) <- zip [0..] rows, i `elem` keepIndices]
           filterCols = transpose filterRows
 
-columnToString :: [ColumnType] -> [[String]]
-columnToString columns = transpose [str | (_, str) <- columns]
+columnToRows :: [ColumnType] -> [[String]]
+columnToRows columns = transpose [str | (_, str) <- columns]
 
 storeFile :: String -> [[String]] -> IO ()
 storeFile filename result = do
