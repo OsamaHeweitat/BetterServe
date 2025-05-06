@@ -33,11 +33,11 @@ evalStmt :: Statement -> IO [ColumnType]
 evalStmt (SelectOpt selection tabs optionals end) = do
     tables <- evalTables 0 tabs
     result <- evalSelection selection tables
-    final <- evalOptionals optionals result tables
+    final = evalOptionals optionals result tables
     evalEnd final end
 evalStmt (SelectStmt selection tabs end) = do -- Version without optionals
     tables <- evalTables 0 tabs
-    result <- evalSelection selection tables
+    result = evalSelection selection tables
     evalEnd result end
 evalStmt (CommentStmt comment) = do
     putStrLn $ "Comment: " ++ comment
@@ -62,8 +62,8 @@ evalTable _ (TableJoin {}) = error "TableJoin not implemented"
 evalEnd :: IO [ColumnType] -> End -> IO [ColumnType]
 evalEnd final End = final
 evalEnd final Output = do
-    _ <- putStrLn (toOutputForm (columnToRows final))
     printedLine <- final
+    _ <- putStrLn (toOutputForm (columnToRows printedLine))
     return printedLine
 
 evalSelection :: Selection -> [Table] -> IO [ColumnType]
@@ -78,9 +78,9 @@ evalSelection (SelectColumns cols) tables = do
 
 evalColumns :: [Grammar.Column] -> [Table] -> [ColumnType]
 evalColumns [] _ = []
-evalColumns (x:xs) tables = evalColumn x tables : evalColumns xs tables
+evalColumns (x:xs) tables = evalColumn x tables ++ evalColumns xs tables
 
-evalColumn :: Grammar.Column -> [Table] -> ColumnType
+evalColumn :: Grammar.Column -> [Table] -> [ColumnType]
 evalColumn (ColIndex x) tables = getColumn x tables
 evalColumn (ColIndexTable x tabIndex) tables = getColWithIndex x tabIndex tables
 evalColumn (IfStmt col1s boolExpr col2s) tables = [ (x, [ if (evalBoolean boolExpr tables i) 
@@ -147,7 +147,7 @@ evalOptionals (x:xs) result tables = do
 evalOptional :: Optional -> [ColumnType] -> [Table] -> IO [ColumnType]
 evalOptional (WhenCondition boolean) columns tables = return (processWhen boolean columns tables)
 evalOptional (Store filename) columns _ = do
-    _ <- storeFile filename (columnToString columns)
+    _ <- storeFile filename (columnToRows columns)
     return columns
 evalOptional (AsExpr outputMod) columns _ = return (evalAs outputMod columns [])
 evalOptional (OrderAs order) columns _ = return (evalOrder order columns)
@@ -164,8 +164,8 @@ processWhen b cols tables = zip colIndices filterCols
           filterRows = [row | (i, row) <- zip [0..] rows, i `elem` keepIndices]
           filterCols = transpose filterRows
 
-columnToString :: [ColumnType] -> [[String]]
-columnToString columns = transpose [str | (_, str) <- columns]
+columnToRows :: [ColumnType] -> [[String]]
+columnToRows columns = transpose [str | (_, str) <- columns]
 
 storeFile :: String -> [[String]] -> IO ()
 storeFile filename result = do
