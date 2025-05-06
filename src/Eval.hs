@@ -89,16 +89,120 @@ evalTable tableIndex (TableConc tables1 tables2) = do
         else error "Cannot concatenate tables with mismatched arity."
 
 -- TableJoin for InnerJoin
+evalTable tableIndex (TableJoin tables1 InnerJoin tables2 colIndex) = do
+    table1 <- evalTable tableIndex (head tables1)
+    table2 <- evalTable (tableIndex + 1) (head tables2)
 
+    let (_, rows1) = table1
+        (_, rows2) = table2
+
+    let (idx1, idx2) = case colIndex of
+            StringComp (SpecNumber i1 _) (SpecNumber i2 _) -> (i1, i2)
+            _ -> error "Unsupported comparison type for InnerJoin. Must be SpecNumber == SpecNumber."
+
+    let matchedRows = [r1 ++ r2 | r1 <- rows1, r2 <- rows2, safeIndex r1 idx1 == safeIndex r2 idx2]
+    return (tableIndex, matchedRows)
+  where
+    safeIndex :: [a] -> Int -> a
+    safeIndex xs i
+      | i >= 0 && i < length xs = xs !! i
+      | otherwise = error $ "Column index " ++ show i ++ " out of bounds in join."
 
 -- TableJoin for LeftJoin 
+evalTable tableIndex (TableJoin tables1 LJoin tables2 colIndex) = do
+    table1 <- evalTable tableIndex (head tables1)
+    table2 <- evalTable (tableIndex + 1) (head tables2)
 
+    let (_, rows1) = table1
+        (_, rows2) = table2
 
--- TableJoin for RightJoin
+    let (idx1, idx2) = case colIndex of
+            StringComp (SpecNumber i1 _) (SpecNumber i2 _) -> (i1, i2)
+            _ -> error "Unsupported comparison type for LJoin. Must be SpecNumber == SpecNumber."
 
+    let matched = [ (r1, r2) | r1 <- rows1, r2 <- rows2, safeIndex r1 idx1 == safeIndex r2 idx2 ]
+        groupedMatches = groupBy (\(r1a, _) (r1b, _) -> r1a == r1b) (sortOn fst matched)
+
+    -- Create rows for r1 that had at least one match in r2
+    let joinedRows = [ r1 ++ r2 | (r1, r2) <- matched ]
+
+    -- Find all r1s that didn’t match any r2
+    let matchedR1s = nub [ r1 | (r1, _) <- matched ]
+    let unmatchedR1s = [ r1 | r1 <- rows1, r1 `notElem` matchedR1s ]
+    let r2Arity = if null rows2 then 0 else length (head rows2)
+    let nullR2 = replicate r2Arity ""
+
+    let resultRows = joinedRows ++ [ r1 ++ nullR2 | r1 <- unmatchedR1s ]
+
+    return (tableIndex, resultRows)
+
+  where
+    safeIndex :: [a] -> Int -> a
+    safeIndex xs i
+      | i >= 0 && i < length xs = xs !! i
+      | otherwise = error $ "Column index " ++ show i ++ " out of bounds in join."
+
+-- TableJoin for RightJoin 
+evalTable tableIndex (TableJoin tables1 RJoin tables2 colIndex) = do
+    table1 <- evalTable tableIndex (head tables1)
+    table2 <- evalTable (tableIndex + 1) (head tables2)
+
+    let (_, rows1) = table1
+        (_, rows2) = table2
+
+    let (idx1, idx2) = case colIndex of
+            StringComp (SpecNumber i1 _) (SpecNumber i2 _) -> (i1, i2)
+            _ -> error "Unsupported comparison type for RightJoin. Must be SpecNumber == SpecNumber."
+
+    let matchedRows =
+            [r1 ++ r2 | r1 <- rows1, r2 <- rows2, safeIndex r1 idx1 == safeIndex r2 idx2]
+
+        unmatchedRows =
+            [ replicate (length (head rows1)) "" ++ r2
+            | r2 <- rows2
+            , not (any (\r1 -> safeIndex r1 idx1 == safeIndex r2 idx2) rows1)
+            ]
+
+    return (tableIndex, matchedRows ++ unmatchedRows)
+  where
+    safeIndex :: [a] -> Int -> a
+    safeIndex xs i
+      | i >= 0 && i < length xs = xs !! i
+      | otherwise = error $ "Column index " ++ show i ++ " out of bounds in join."
 
 -- TableJoin for FullJoin
+evalTable tableIndex (TableJoin tables1 Join tables2 colIndex) = do
+    table1 <- evalTable tableIndex (head tables1)
+    table2 <- evalTable (tableIndex + 1) (head tables2)
 
+    let (_, rows1) = table1
+        (_, rows2) = table2
+
+    let (idx1, idx2) = case colIndex of
+            StringComp (SpecNumber i1 _) (SpecNumber i2 _) -> (i1, i2)
+            _ -> error "Unsupported comparison type for FullJoin. Must be SpecNumber == SpecNumber."
+
+    let matchedRows =
+            [r1 ++ r2 | r1 <- rows1, r2 <- rows2, safeIndex r1 idx1 == safeIndex r2 idx2]
+
+        unmatchedLeft =
+            [ r1 ++ replicate (length (head rows2)) ""
+            | r1 <- rows1
+            , not (any (\r2 -> safeIndex r1 idx1 == safeIndex r2 idx2) rows2)
+            ]
+
+        unmatchedRight =
+            [ replicate (length (head rows1)) "" ++ r2
+            | r2 <- rows2
+            , not (any (\r1 -> safeIndex r1 idx1 == safeIndex r2 idx2) rows1)
+            ]
+
+    return (tableIndex, matchedRows ++ unmatchedLeft ++ unmatchedRight)
+  where
+    safeIndex :: [a] -> Int -> a
+    safeIndex xs i
+      | i >= 0 && i < length xs = xs !! i
+      | otherwise = error $ "Column index " ++ show i ++ " out of bounds in join."
 
 evalEnd :: IO [ColumnType] -> End -> IO [ColumnType]
 evalEnd final End = final
