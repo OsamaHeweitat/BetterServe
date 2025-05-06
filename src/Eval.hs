@@ -32,7 +32,7 @@ evalProgram (Program (statement:rest)) result = do
     evalProgram (Program rest) (result ++ formatted)
     where
         toCSVFormat :: [String] -> String
-        toCSVFormat = intercalate "," . filter (/= "")
+        toCSVFormat = intercalate ","
 
 evalStmt :: Statement -> IO [ColumnType]
 evalStmt (SelectOpt selection tabs optionals end) = do
@@ -41,9 +41,9 @@ evalStmt (SelectOpt selection tabs optionals end) = do
     evalEnd (evalOptionals optionals result tables) end
 evalStmt (SelectStmt selection tabs end) = do -- Version without optionals
     tables <- evalTables 0 tabs
-    evalEnd (evalSelection selection tables) end
+    selectionResults <- evalSelection selection tables
+    evalEnd (return selectionResults) end
 evalStmt (CommentStmt comment) = do
-    putStrLn $ "Comment: " ++ comment
     return []
 
 evalTables :: Int -> [Tables] -> IO [Table]
@@ -59,24 +59,24 @@ evalTable tableIndex (LoadTable filename) = do
     let rows = lines contents
     let arities = map (length . splitOn ",") rows
     if all (== head arities) arities
-        then putStrLn "CSV file has consistent arity.\n\n" -- This shouldnt be in the submission
+        then return ()
         else error "CSV file has inconsistent arity."
-    
+
     let rows = map (splitOn ",") (lines contents)
     return (tableIndex, rows)
 
 evalTable tableIndex (TableOp tables1 expr tables2) = do
-    putStrLn $ "TableOp: " ++ show expr
-    putStrLn $ "Tables1: " ++ show tables1
-    putStrLn $ "Tables2: " ++ show tables2
     evalTables1 <- evalTables tableIndex tables1
     evalTables2 <- evalTables (tableIndex + length tables1) tables2
     let result
-            | expr == Cartesian = 
-            | expr == Union = 
-            | expr == Intersect = 
-    return (tablesEvaluated, result)
-        
+            | expr == Cartesian =
+                (tableIndex, [row1 ++ row2 | (_, rows1) <- evalTables1, row1 <- rows1, (_, rows2) <- evalTables2, row2 <- rows2])
+            | expr == Union =
+                (tableIndex, concatMap snd evalTables1 ++ concatMap snd evalTables2)
+            | expr == Intersect =
+                (tableIndex, [row1 | (_, rows1) <- evalTables1, row1 <- rows1, (_, rows2) <- evalTables2, row2 <- rows2, row1 == row2])
+    return result
+
 evalTable _ (TableConc _ _) = error "TableConc not implemented"
 evalTable _ (TableJoin {}) = error "TableJoin not implemented"
 
@@ -88,11 +88,11 @@ evalEnd final Output = do
     return printedLine
 
 evalSelection :: Selection -> [Table] -> IO [ColumnType]
-evalSelection SelectAll tables = return (allTablesToColumns tables)
-    where
-        allTablesToColumns :: [Table] -> [ColumnType]
-        allTablesToColumns [] = []
-        allTablesToColumns ((tableIndex, rows):rest) = (tableIndex, concat rows) : allTablesToColumns rest
+evalSelection SelectAll tables = do
+    let tableArity = length (head (snd (head tables)))
+    let this = map ColIndex [0..(tableArity - 1)]
+    let strings = evalColumns this tables
+    return strings
 evalSelection (SelectColumns cols) tables = do
     let strings = evalColumns cols tables
     return (zip [0..] (map snd strings))
@@ -104,7 +104,7 @@ evalColumns (x:xs) tables = evalColumn x tables ++ evalColumns xs tables
 evalColumn :: Grammar.Column -> [Table] -> [ColumnType]
 evalColumn (ColIndex x) tables = [getColumn x tables]
 evalColumn (ColIndexTable x tabIndex) tables = [getColWithIndex x tabIndex tables]
-evalColumn (IfStmt col1s boolExpr col2s) tables = [ (x, [ if (evalBoolean boolExpr tables i) 
+evalColumn (IfStmt col1s boolExpr col2s) tables = [ (x, [ if evalBoolean boolExpr tables i
     then col1!!i else col2!!i | i <- [0..rows - 1] ]) | ((x, col1), (_, col2)) <- zip col1Vals col2Vals ]
     where
         col1Vals = evalColumns col1s tables
@@ -145,7 +145,7 @@ evalBoolComp (IntLT number1 number2) tables row = evalInt number1 tables row < e
 
 evalString :: Str -> [Table] -> Int -> String
 evalString (Number x) tables row = case tables of
-    (table:_) -> snd (getColumn (x) [table]) !! row
+    (table:_) -> snd (getColumn x [table]) !! row
     [] -> error "No tables available to evaluate the number."
 evalString (SpecNumber x tabIndex) t row = snd (getColWithIndex x tabIndex t) !! row
 evalString (Name x) _ _ = x
@@ -191,12 +191,13 @@ columnToRows :: [ColumnType] -> [[String]]
 columnToRows columns = transpose [str | (_, str) <- columns]
 
 storeFile :: String -> [[String]] -> IO ()
-storeFile filename result = do
-    writeFile (filename ++ ".csv") (toOutputForm result)
+storeFile filename result = writeFile (filename ++ ".csv") (toOutputForm result)
 
 toOutputForm :: [[String]] -> String
 toOutputForm out = intercalate "\n" result
-    where result = (map (intercalate ",") out)
+    where 
+        result = map (intercalate "," . map cleanItem) out
+        cleanItem = reverse . dropWhile (== ' ') . reverse . dropWhile (== ' ')
 
 -- acc stores the current output
 evalAs :: [Outputs] -> [ColumnType] -> [ColumnType] -> [ColumnType] -- This needs to return [ColumnType]
