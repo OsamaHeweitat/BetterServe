@@ -33,12 +33,10 @@ evalStmt :: Statement -> IO [ColumnType]
 evalStmt (SelectOpt selection tabs optionals end) = do
     tables <- evalTables 0 tabs
     result <- evalSelection selection tables
-    final = evalOptionals optionals result tables
-    evalEnd final end
+    evalEnd (evalOptionals optionals result tables) end
 evalStmt (SelectStmt selection tabs end) = do -- Version without optionals
     tables <- evalTables 0 tabs
-    result = evalSelection selection tables
-    evalEnd result end
+    evalEnd (evalSelection selection tables) end
 evalStmt (CommentStmt comment) = do
     putStrLn $ "Comment: " ++ comment
     return []
