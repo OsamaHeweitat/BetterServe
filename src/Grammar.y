@@ -63,6 +63,7 @@ import Tokens
     INT       { TokenDigit _ $$ } 
     STRING    { TokenVar _ $$ }
     NUM       { TokenNumber _ }
+    ANY       { TokenAny _ $$ }
 
 %left PLUS MINUS TIMES DIVIDE
 %left AND OR XOR DOT
@@ -83,7 +84,7 @@ End : OUTPUT { Output }
 Selection : ColumnList { SelectColumns $1 }
     | AST { SelectAll }
 ColumnList : Column { [$1] }
-    | ColumnList COMMA Column { $1 ++ [$3] }
+    | ColumnList COMMA ColumnList { $1 ++ $3 }
     | LPAREN ColumnList IF Boolean OTHERWISE ColumnList RPAREN { [IfStmt $2 $4 $6] }
 Column : INT { ColIndex $1 }
     | INT DOT INT { ColIndexTable $1 $3 }
@@ -113,7 +114,7 @@ Outputs : Output { [ $1 ] }
     | Outputs COMMA Output { $1 ++ [$3] }
 Output : INT { OutputCols $1 }
     | STRING { OutputString $1 }
-    | QUOTE INT QUOTE { OutputQuote $2 }
+    | ANY { OutputQuote $1 }
 Order : IntCalc { OrderCalc $1 }
     | IntCalc COMMA Order { NestedOrder $1 $3 }
     | UP { OrderByAsc }
@@ -136,7 +137,7 @@ Comparison : Str EQ EQ Str { StringComp $1 $4 }
 Str : INT { Number $1 }
     | INT DOT INT { SpecNumber $1 $3 }
     | STRING { Name $1 }
-    | QUOTE Str QUOTE { Quote $2 }
+    | ANY { Quote $1 }
 
 IntCalc : LENGTH Str { CountLength $2 }
     | NUM INT { Digit $2 }
@@ -216,7 +217,7 @@ data Optional
 data Outputs
   = OutputCols Int -- NOW you choose from your indexed selection
   | OutputString String
-  | OutputQuote Int
+  | OutputQuote String
   deriving (Show, Eq)
 
 -- | Ordering options
@@ -255,7 +256,7 @@ data Str
   = Number Int
   | Name String
   | SpecNumber Int Int
-  | Quote Str
+  | Quote String
   deriving (Show, Eq)
 
 -- | Integer calculations
