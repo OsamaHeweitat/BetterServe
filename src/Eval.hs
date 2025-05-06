@@ -67,9 +67,12 @@ evalTable tableIndex (TableOp tables1 expr tables2) = do
     evalTables2 <- evalTables (tableIndex + length tables1) tables2
     let result
             | expr == Cartesian = 
+                (tableIndex, [row1 ++ row2 | (_, rows1) <- evalTables1, row1 <- rows1, (_, rows2) <- evalTables2, row2 <- rows2])
             | expr == Union = 
-            | expr == Intersect = 
-    return (tablesEvaluated, result)
+                (tableIndex, concatMap snd evalTables1 ++ concatMap snd evalTables2)
+            | expr == Intersect =  
+                (tableIndex, [row1 | (_, rows1) <- evalTables1, row1 <- rows1, (_, rows2) <- evalTables2, row2 <- rows2, row1 == row2])
+    return result
         
 evalTable _ (TableConc _ _) = error "TableConc not implemented"
 evalTable _ (TableJoin {}) = error "TableJoin not implemented"
