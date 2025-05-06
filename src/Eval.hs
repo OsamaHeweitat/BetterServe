@@ -38,12 +38,11 @@ evalStmt :: Statement -> IO [ColumnType]
 evalStmt (SelectOpt selection tabs optionals end) = do
     tables <- evalTables 0 tabs
     result <- evalSelection selection tables
-    final <- evalOptionals optionals result tables
-    evalEnd final end
+    evalEnd (evalOptionals optionals result tables) end
 evalStmt (SelectStmt selection tabs end) = do -- Version without optionals
     tables <- evalTables 0 tabs
     result <- evalSelection selection tables
-    evalEnd result end
+    evalEnd (return result) end
 evalStmt (CommentStmt comment) = do
     putStrLn $ "Comment: " ++ comment
     return []
@@ -58,6 +57,13 @@ evalTables tableIndex (table:rest) = do
 evalTable :: Int -> Tables -> IO Table
 evalTable tableIndex (LoadTable filename) = do
     contents <- readFile (filename ++ ".csv")
+    
+    let rows = lines contents
+    let arities = map (length . splitOn ",") rows
+    if all (== head arities) arities
+        then putStrLn "CSV file has consistent arity."
+        else error "CSV file has inconsistent arity."
+    
     let rows = map (splitOn ",") (lines contents)
     return (tableIndex, rows)
 evalTable _ (TableOp {}) = error "TableOp not implemented"
@@ -67,9 +73,12 @@ evalTable _ (TableJoin {}) = error "TableJoin not implemented"
 evalEnd :: IO [ColumnType] -> End -> IO [ColumnType]
 evalEnd final End = final
 evalEnd final Output = do
-    _ <- putStrLn (toOutputForm (columnToRows final))
-    printedLine <- final
-    return printedLine
+    finalResult <- final
+    _ <- putStrLn (toOutputForm (columnToRows finalResult))
+    final
+    where
+        columnToRows :: [ColumnType] -> [[String]]
+        columnToRows columns = transpose [str | (_, str) <- columns]
 
 evalSelection :: Selection -> [Table] -> IO [ColumnType]
 evalSelection SelectAll tables = return (allTablesToColumns tables)
@@ -88,14 +97,16 @@ evalColumns (x:xs) tables = evalColumn x tables : evalColumns xs tables
 evalColumn :: Grammar.Column -> [Table] -> ColumnType
 evalColumn (ColIndex x) tables = getColumn x tables
 evalColumn (ColIndexTable x tabIndex) tables = getColWithIndex x tabIndex tables
-evalColumn (IfStmt col1s boolExpr col2s) tables = [ (x, [ if (evalBoolean boolExpr tables i) 
-    then col1!!i else col2!!i | i <- [0..rows - 1] ]) | ((x, col1), (_, col2)) <- zip col1Vals col2Vals ]
+evalColumn (IfStmt col1s boolExpr col2s) tables = 
+    (0, [if evalBoolean boolExpr tables i then col1 !! i else col2 !! i | i <- [0..rows - 1]])
     where
         col1Vals = evalColumns col1s tables
         col2Vals = evalColumns col2s tables
         rows = case col1Vals of
             (_, vals):_ -> length vals
             _ -> error "No value in column"
+        col1 = concatMap snd col1Vals
+        col2 = concatMap snd col2Vals
 
 getColumn :: Int -> [Table] -> ColumnType
 getColumn colIndex tables = (colIndex, concatMap (getColValues colIndex) tables)
@@ -144,7 +155,7 @@ evalInt (IntDiv x1 x2) t i = evalInt x1 t i `div` evalInt x2 t i
 evalInt (IntPow x1 x2) t i = evalInt x1 t i ^ evalInt x2 t i
 
 evalOptionals :: [Optional] -> [ColumnType] -> [Table] -> IO [ColumnType]
-evalOptionals [] result _ = return result 
+evalOptionals [] result _ = return result
 evalOptionals (x:xs) result tables = do
     newResult <- evalOptional x result tables
     evalOptionals xs newResult tables
