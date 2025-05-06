@@ -1,1 +1,0 @@
-GET 1 FROM LOAD "A" WHEN 1 == 2 END
