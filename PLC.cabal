@@ -51,8 +51,7 @@ executable PLC-exe
       app
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      PLC
-    , base >=4.7 && <5,
+    base >=4.7 && <5,
     split,
     containers,
     array,
@@ -61,10 +60,13 @@ executable PLC-exe
 
 executable EvalHS
   main-is:             Main.hs
+  other-modules:
+      Eval
+      Grammar
+      Tokens
   hs-source-dirs:      src
   build-depends:
-      PLC
-    , base >=4.7 && <5,
+    base >=4.7 && <5,
     split,
     containers,
     array,

@@ -5,6 +5,7 @@ import qualified Data.Map as Map
 import System.IO
 import Data.List.Split (splitOn)
 import Data.List
+import Data.Maybe (fromMaybe)
 import Data.Char (ord)
 import Control.Applicative
 import Text.Parsec
@@ -23,11 +24,15 @@ evalProgram :: Program -> String -> IO String
 evalProgram (Program []) result = return result
 evalProgram (Program (statement:rest)) result = do
     stmtLines <- evalStmt statement
-    let formatted = unlines (map (toCSVFormat . snd) stmtLines)
-    evalProgram (Program rest) (result ++ "\n" ++ formatted)
+    putStrLn $ "Statement: " ++ show stmtLines
+    let formatted = unlines (filter (not . null) (map (toCSVFormat . snd) stmtLines))
+    putStrLn $ "Formatted: " ++ formatted
+    putStrLn $ "Result: " ++ result
+    -- evalProgram (Program rest) (result ++ "\n" ++ formatted)
+    evalProgram (Program rest) (result ++ formatted)
     where
         toCSVFormat :: [String] -> String
-        toCSVFormat = intercalate ","
+        toCSVFormat = intercalate "," . filter (/= "")
 
 evalStmt :: Statement -> IO [ColumnType]
 evalStmt (SelectOpt selection tabs optionals end) = do
@@ -89,12 +94,14 @@ evalColumn (IfStmt col1s boolExpr col2s) tables = [ (x, [ if (evalBoolean boolEx
         rows = case col1Vals of
             (_, vals):_ -> length vals
             _ -> error "No value in column"
+        col1 = concatMap snd col1Vals
+        col2 = concatMap snd col2Vals
 
 getColumn :: Int -> [Table] -> ColumnType
 getColumn colIndex tables = (colIndex, concatMap (getColValues colIndex) tables)
     where
         getColValues :: Int -> Table -> [String]
-        getColValues columnIndex (_, rows) = map (!! columnIndex) rows
+        getColValues columnIndex (_, rows) = map (!! (columnIndex - 1)) rows
 
 getColWithIndex :: Int -> Int -> [Table] -> ColumnType
 getColWithIndex colIndex tabIndex tables = (colIndex, concatMap (getColValues colIndex) filteredTables)
@@ -174,7 +181,8 @@ toOutputForm out = intercalate "\n" (map (intercalate ",") out)
 
 -- acc stores the current output
 evalAs :: [Outputs] -> [ColumnType] -> [ColumnType] -> [ColumnType] -- This needs to return [ColumnType]
-evalAs [] result acc = acc
+evalAs [] _ acc = acc
+evalAs ((OutputQuote _):_) _ _ = error "OutputQuote pattern not implemented in evalAs."
 evalAs ((OutputCols number):rest) result acc | number <= length result = evalAs rest result ([result!!(number-1)] ++ acc)
     | otherwise = error "Index out of bounds"
 evalAs ((OutputString str):rest) result acc = evalAs rest result ([(0, [str])] ++ acc)
