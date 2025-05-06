@@ -43,8 +43,7 @@ evalStmt (SelectStmt selection tabs end) = do -- Version without optionals
     tables <- evalTables 0 tabs
     selectionResults <- evalSelection selection tables
     evalEnd (return selectionResults) end
-evalStmt (CommentStmt comment) = do
-    return []
+evalStmt (CommentStmt comment) = return []
 
 evalTables :: Int -> [Tables] -> IO [Table]
 evalTables _ [] = return []
@@ -90,7 +89,7 @@ evalTable tableIndex (TableConc tables1 tables2) = do
         else error "Cannot concatenate tables with mismatched arity."
 
 -- TableJoin for InnerJoin
-evalTable tableIndex (TableJoin InnerJoin colIndex tables1 tables2) = do
+evalTable tableIndex (TableJoin tables1 InnerJoin tables2 colIndex) = do
     evalTables1 <- evalTables tableIndex tables1
     evalTables2 <- evalTables (tableIndex + length tables1) tables2
     let rows1 = concatMap snd evalTables1
@@ -103,7 +102,7 @@ evalTable tableIndex (TableJoin InnerJoin colIndex tables1 tables2) = do
         safeIndex xs i = if i < length xs then Just (xs !! i) else Nothing
 
 -- TableJoin for LeftJoin
-evalTable tableIndex (TableJoin LeftJoin colIndex tables1 tables2) = do
+evalTable tableIndex (TableJoin tables1 LJoin tables2 colIndex) = do
     evalTables1 <- evalTables tableIndex tables1
     evalTables2 <- evalTables (tableIndex + length tables1) tables2
     let rows1 = concatMap snd evalTables1
@@ -114,7 +113,7 @@ evalTable tableIndex (TableJoin LeftJoin colIndex tables1 tables2) = do
     return (tableIndex, joinedRows)
 
 --TableJoin for RightJoin 
-evalTable tableIndex (TableJoin RightJoin colIndex tables1 tables2) = do
+evalTable tableIndex (TableJoin tables1 RJoin tables2 colIndex) = do
     evalTables1 <- evalTables tableIndex tables1
     evalTables2 <- evalTables (tableIndex + length tables1) tables2
     let rows1 = concatMap snd evalTables1
@@ -125,7 +124,7 @@ evalTable tableIndex (TableJoin RightJoin colIndex tables1 tables2) = do
     return (tableIndex, joinedRows)
 
 -- TableJoin for FullJoin
-evalTable tableIndex (TableJoin FullJoin colIndex tables1 tables2) = do
+evalTable tableIndex (TableJoin tables1 Join tables2 colIndex) = do
     evalTables1 <- evalTables tableIndex tables1
     evalTables2 <- evalTables (tableIndex + length tables1) tables2
     let rows1 = concatMap snd evalTables1
@@ -265,7 +264,7 @@ toOutputForm out = intercalate "\n" result
 -- acc stores the current output
 evalAs :: [Outputs] -> [ColumnType] -> [ColumnType] -> [ColumnType] -- This needs to return [ColumnType]
 evalAs [] _ acc = acc
-evalAs ((OutputQuote x):rest) r acc = evalAs ((OutputString (filter (/='\n') x)):rest) r acc
+evalAs ((OutputQuote x):rest) r acc = evalAs (OutputString (filter (/='\n') x):rest) r acc
 evalAs ((OutputCols number):rest) result acc | number <= length result = evalAs rest result (acc ++ [result!!number])
     | otherwise = error "Index out of bounds"
 evalAs ((OutputString str):rest) result acc = evalAs rest result (acc ++ [(0, [str | x <- [0..rows-1]])])

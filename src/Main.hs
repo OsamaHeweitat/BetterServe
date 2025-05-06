@@ -1,14 +1,11 @@
 module Main where
     import Eval
     import System.Directory (getCurrentDirectory)
+    import System.Environment (getArgs)
 
     main :: IO ()
     main = do
-        cwd <- getCurrentDirectory
-        putStrLn "Enter the filenfame of the SQL-like script:"
-        filename <- getLine
+        args <- getArgs
+        let filename = if null args then error "Please provide a filename as an argument." else head args
         result <- eval filename
         putStr ""
-        --putStrLn "Result:"
-        --putStrLn result
-        -- putStrLn "Done."
