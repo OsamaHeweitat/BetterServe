@@ -52,7 +52,7 @@ import Tokens
     EQ           { TokenEq _ } 
     GT      { TokenGT _ } 
     LT      { TokenLT _ } 
-    QUOTE            { TokenString _ } 
+    QUOTE            { TokenQuote _ } 
     LENGTH      { TokenLength _ } 
     ORD_OF      { TokenOrd _ } 
     

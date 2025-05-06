@@ -1,8 +1,14 @@
 .stack-work/
 *~
 src/Grammar.hs
-src/Input.txt
 src/Tokens.hs
-src/Main.hs
 .vscode
 dist-newstyle/
+test.bs
+src/Grammar.info
+src/Grammar.hi
+src/Grammar.o
+src/Tokens.hi
+src/Tokens.o
+src/OldEval.hs
+A.csv

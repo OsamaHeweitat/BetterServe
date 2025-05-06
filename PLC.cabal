@@ -61,6 +61,10 @@ executable PLC-exe
 
 executable EvalHS
   main-is:             Main.hs
+  other-modules:
+      Eval
+      Grammar
+      Tokens
   hs-source-dirs:      src
   build-depends:       base >= 4.7 && < 5, parsec
   build-depends:
@@ -69,7 +73,8 @@ executable EvalHS
     split,
     containers,
     array,
-    parsec
+    parsec,
+    directory
   default-language:    Haskell2010
 
 test-suite PLC-test

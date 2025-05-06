@@ -5,6 +5,7 @@ import qualified Data.Map as Map
 import System.IO
 import Data.List.Split (splitOn)
 import Data.List
+import Data.Maybe (fromMaybe)
 import Data.Char (ord)
 import Control.Applicative
 import Text.Parsec
@@ -23,11 +24,15 @@ evalProgram :: Program -> String -> IO String
 evalProgram (Program []) result = return result
 evalProgram (Program (statement:rest)) result = do
     stmtLines <- evalStmt statement
-    let formatted = unlines (map (toCSVFormat . snd) stmtLines)
-    evalProgram (Program rest) (result ++ "\n" ++ formatted)
+    putStrLn $ "Statement: " ++ show stmtLines
+    let formatted = unlines (filter (not . null) (map (toCSVFormat . snd) stmtLines))
+    putStrLn $ "Formatted: " ++ formatted
+    putStrLn $ "Result: " ++ result
+    -- evalProgram (Program rest) (result ++ "\n" ++ formatted)
+    evalProgram (Program rest) (result ++ formatted)
     where
         toCSVFormat :: [String] -> String
-        toCSVFormat = intercalate ","
+        toCSVFormat = intercalate "," . filter (/= "")
 
 evalStmt :: Statement -> IO [ColumnType]
 evalStmt (SelectOpt selection tabs optionals end) = do
@@ -52,7 +57,7 @@ evalTables tableIndex (table:rest) = do
 
 evalTable :: Int -> Tables -> IO Table
 evalTable tableIndex (LoadTable filename) = do
-    contents <- readFile filename
+    contents <- readFile (filename ++ ".csv")
     let rows = map (splitOn ",") (lines contents)
     return (tableIndex, rows)
 evalTable _ (TableOp {}) = error "TableOp not implemented"
@@ -90,7 +95,7 @@ getColumn :: Int -> [Table] -> ColumnType
 getColumn colIndex tables = (colIndex, concatMap (getColValues colIndex) tables)
     where
         getColValues :: Int -> Table -> [String]
-        getColValues columnIndex (_, rows) = map (!! columnIndex) rows
+        getColValues columnIndex (_, rows) = map (!! (columnIndex - 1)) rows
 
 getColWithIndex :: Int -> Int -> [Table] -> ColumnType
 getColWithIndex colIndex tabIndex tables = (colIndex, concatMap (getColValues colIndex) filteredTables)
@@ -133,7 +138,7 @@ evalInt (IntDiv x1 x2) t i = evalInt x1 t i `div` evalInt x2 t i
 evalInt (IntPow x1 x2) t i = evalInt x1 t i ^ evalInt x2 t i
 
 evalOptionals :: [Optional] -> [ColumnType] -> [Table] -> IO [ColumnType]
-evalOptionals [] result _ = return result
+evalOptionals [] result _ = return result 
 evalOptionals (x:xs) result tables = do
     newResult <- evalOptional x result tables
     evalOptionals xs newResult tables
@@ -147,11 +152,12 @@ evalOptional (AsExpr outputMod) columns _ = return (evalAs outputMod columns [])
 evalOptional (OrderAs order) columns _ = return (evalOrder order columns)
 evalOptional (GroupAs theGroup) columns _ = return $ concat (groupBy (evalGroup theGroup) columns)
 
+-- Statement is like GET 1, 2 FROM table WHEN 1 == 2
 processWhen :: Boolean -> [ColumnType] -> [Table] -> [ColumnType]
-processWhen b col tables = map filterColumn col
-    where filterColumn (colIndex, x) = (colIndex, [v | (ind, v) <- zip [0..] x, ind `elem` keepIndices])
-          keepIndices = [i | i <- [0..len - 1], evalBoolean b tables i] -- Rows to keep
-          len = if null col then 0 else length (snd (head col))
+processWhen b columns tables =
+    [(colIndex, filter (evalBoolean b tables . indexx) rows) | (colIndex, rows) <- columns]
+    where
+        indexx row = fromMaybe 0 (elemIndex row (concatMap snd columns))
 
 columnToString :: [ColumnType] -> [[String]]
 columnToString columns = transpose [str | (_, str) <- columns]
