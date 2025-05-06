@@ -1,0 +1,1 @@
+GET 0 FROM LOAD A AS 0, foo, 0, OUTPUT
