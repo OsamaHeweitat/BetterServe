@@ -364,9 +364,7 @@ evalOrder (OrderCalc calc) result = zip (map fst result) (transpose sortedRows)
           sortIndices = sortOn (\i -> evalInt calc [(0, columnToRows result)] i) [0..length rows - 1]
           sortedRows = map (rows !!) sortIndices
 
---colToTables :: [ColumnType] -> Table
---colToTables column = (fst column, columnToRows [column])
-
+-- 
 evalGroup :: Comparison -> ColumnType -> ColumnType -> Bool
 evalGroup theGroup (colIndex1, values1) (colIndex2, values2) =
     evalBoolComp theGroup [] 0 && colIndex1 == colIndex2
