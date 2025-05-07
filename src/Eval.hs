@@ -18,18 +18,22 @@ eval :: String -> IO String
 eval filename = do
     contents <- readFile filename
     let program = Program (Grammar.parse (alexScanTokens contents))
-    evalProgram program ""
+    evalProgram program "" False
 
-evalProgram :: Program -> String -> IO String
-evalProgram (Program []) result = return result
-evalProgram (Program (statement:rest)) result = do
+-- The bool is just whether to add new line or not (whether its a multi-program or not)
+evalProgram :: Program -> String -> Bool -> IO String
+evalProgram (Program []) result _ = return result
+evalProgram (Program (statement:rest)) result newline = do
+    if newline
+        then putStrLn ""
+        else putStr ""
     stmtLines <- evalStmt statement
     --putStrLn $ "Statement: " ++ show stmtLines
     let formatted = unlines (filter (not . null) (map (toCSVFormat . snd) stmtLines))
     --putStrLn $ "Formatted: " ++ formatted
     --putStrLn $ "Result: " ++ result
     -- evalProgram (Program rest) (result ++ "\n" ++ formatted)
-    evalProgram (Program rest) (result ++ formatted)
+    evalProgram (Program rest) (result ++ formatted) True
     where
         toCSVFormat :: [String] -> String
         toCSVFormat = intercalate ","
