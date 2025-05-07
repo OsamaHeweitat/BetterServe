@@ -352,7 +352,8 @@ evalAs ((OutputString str):rest) result acc = evalAs rest result (acc ++ [(0, [s
     where rows = length (snd (head result))
 
 evalTranspose :: [ColumnType] -> [ColumnType]
-evalTranspose columns = [(i,transpose x) | (i,x) <- columns ]
+evalTranspose columns = zip [0..] (rows)
+    where rows = (columnToRows columns)
 
 evalOrder :: Order -> [ColumnType] -> [ColumnType]
 evalOrder OrderByAsc result = zip (map fst result) (transpose (sort (columnToRows result)))
@@ -360,11 +361,11 @@ evalOrder OrderByDesc result = zip (map fst result) (transpose (sortBy (flip com
 evalOrder (NestedOrder calc order) result = result -- TODO
 evalOrder (OrderCalc calc) result = zip (map fst result) (transpose sortedRows)
     where rows = columnToRows result
-          sortIndices = sortOn (\i -> evalInt calc [colToTable result] i) [0..length rows - 1]
+          sortIndices = sortOn (\i -> evalInt calc [(0, columnToRows result)] i) [0..length rows - 1]
           sortedRows = map (rows !!) sortIndices
 
-colToTable :: ColumnType -> Table
-colToTable column = (fst column, columnToRows [column])
+--colToTables :: [ColumnType] -> Table
+--colToTables column = (fst column, columnToRows [column])
 
 evalGroup :: Comparison -> ColumnType -> ColumnType -> Bool
 evalGroup theGroup (colIndex1, values1) (colIndex2, values2) =
