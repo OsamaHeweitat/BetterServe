@@ -26,7 +26,7 @@ eval filename = do
 evalProgram :: Program -> String -> Bool -> IO String
 evalProgram (Program []) result _ = return result
 evalProgram (Program (statement:rest)) result newline = do
-    (if newline && ("OUTPUT" `isSuffixOf` show statement) then putStrLn "" else return ())
+    (if newline && ("Output" `isSuffixOf` (reverse (dropWhile (== ' ') (reverse (show statement))))) then putStrLn "" else return ())
     stmtLines <- evalStmt statement
     --putStrLn $ "Statement: " ++ show stmtLines
     let formatted = unlines (filter (not . null) (map (toCSVFormat . snd) stmtLines))
