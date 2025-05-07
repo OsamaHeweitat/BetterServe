@@ -8,4 +8,4 @@ module Main where
         args <- getArgs
         let filename = if null args then error "Please provide a filename as an argument." else head args
         result <- eval filename
-        putStr ""
+        return () --putStr ""
