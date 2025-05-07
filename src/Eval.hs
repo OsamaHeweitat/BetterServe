@@ -24,9 +24,9 @@ eval filename = do
 evalProgram :: Program -> String -> Bool -> IO String
 evalProgram (Program []) result _ = return result
 evalProgram (Program (statement:rest)) result newline = do
-    if newline
-        then putStrLn ""
-        else putStr ""
+    --if newline
+    --    then putStrLn ""
+    --    else putStr ""
     stmtLines <- evalStmt statement
     --putStrLn $ "Statement: " ++ show stmtLines
     let formatted = unlines (filter (not . null) (map (toCSVFormat . snd) stmtLines))
@@ -315,6 +315,7 @@ evalOptional (Store filename) columns _ = do
     _ <- storeFile filename  (columnToRows columns)
     return columns
 evalOptional (AsExpr outputMod) columns _ = return (evalAs outputMod columns [])
+evalOptional (Transpose) columns _ = return (evalTranspose columns)
 evalOptional (OrderAs order) columns _ = return (evalOrder order columns)
 evalOptional (GroupAs theGroup) columns _ = return $ concat (groupBy (evalGroup theGroup) columns)
 
@@ -350,11 +351,20 @@ evalAs ((OutputCols number):rest) result acc | number <= length result = evalAs 
 evalAs ((OutputString str):rest) result acc = evalAs rest result (acc ++ [(0, [str | x <- [0..rows-1]])])
     where rows = length (snd (head result))
 
+evalTranspose :: [ColumnType] -> [ColumnType]
+evalTranspose columns = [(i,transpose x) | (i,x) <- columns ]
+
 evalOrder :: Order -> [ColumnType] -> [ColumnType]
 evalOrder OrderByAsc result = zip (map fst result) (transpose (sort (columnToRows result)))
 evalOrder OrderByDesc result = zip (map fst result) (transpose (sortBy (flip compare) (columnToRows result)))
 evalOrder (NestedOrder calc order) result = result -- TODO
-evalOrder (OrderCalc calc) result = result -- TODO
+evalOrder (OrderCalc calc) result = zip (map fst result) (transpose sortedRows)
+    where rows = columnToRows result
+          sortIndices = sortOn (\i -> evalInt calc [colToTable result] i) [0..length rows - 1]
+          sortedRows = map (rows !!) sortIndices
+
+colToTable :: ColumnType -> Table
+colToTable column = (fst column, columnToRows [column])
 
 evalGroup :: Comparison -> ColumnType -> ColumnType -> Bool
 evalGroup theGroup (colIndex1, values1) (colIndex2, values2) =

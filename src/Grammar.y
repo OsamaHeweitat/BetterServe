@@ -37,6 +37,7 @@ import Tokens
     WHEN        { TokenWhen _ } 
     STORE       { TokenStore _ } 
     AS          { TokenAs _ } 
+    TRANSPOSE   { TokenTrans }
     ORDER       { TokenOrder _ } 
     GROUPING    { TokenGrouping _ } 
     UP          { TokenUp _ } 
@@ -108,6 +109,7 @@ Optionals : Operation Optionals { ($1 : $2) }
 Operation : WHEN Boolean { WhenCondition $2 }
     | STORE STRING { Store $2 }
     | AS Outputs { AsExpr $2 }
+    | TRANSPOSE { Transpose }
     | ORDER Order { OrderAs $2 }
     | GROUPING Comparison { GroupAs $2 }
 Outputs : Output { [ $1 ] }
@@ -209,6 +211,7 @@ data Optional
   = WhenCondition Boolean
   | Store String
   | AsExpr [Outputs]
+  | Transpose
   | OrderAs Order
   | GroupAs Comparison
   deriving (Show, Eq)
