@@ -7,21 +7,21 @@ import Tokens
 %tokentype { Token } 
 %error { parseError }
 %token 
-    SEMICOLON           { TokenSemicolon _ } 
+    SEMICOLON   { TokenSemicolon _ } 
     GET         { TokenGET _ } 
     FROM        { TokenFROM _ } 
     COMMENT     { TokenComment _ $$ }
 
-    AST           { TokenAll _ } 
-    COMMA           { TokenComma _ } 
-    LPAREN           { TokenLParen _ } 
+    AST         { TokenAll _ } 
+    COMMA       { TokenComma _ } 
+    LPAREN      { TokenLParen _ } 
     IF          { TokenIf _ } 
     OTHERWISE   { TokenOtherwise _ } 
-    RPAREN           { TokenRParen _ } 
-    DOT           { TokenPeriod _ } 
+    RPAREN      { TokenRParen _ } 
+    DOT         { TokenPeriod _ } 
 
     LOAD        { TokenLoad _ } 
-    PLUS           { TokenPlus _ } 
+    PLUS        { TokenPlus _ } 
     ON          { TokenOn _ } 
     CARTESIAN   { TokenCartesian _ } 
     UNION       { TokenUnion _ } 
@@ -37,6 +37,7 @@ import Tokens
     WHEN        { TokenWhen _ } 
     STORE       { TokenStore _ } 
     AS          { TokenAs _ } 
+    TRANSPOSE   { TokenTrans _ }
     ORDER       { TokenOrder _ } 
     GROUPING    { TokenGrouping _ } 
     UP          { TokenUp _ } 
@@ -49,10 +50,10 @@ import Tokens
     OR          { TokenOR _ } 
     XOR         { TokenXOR _ } 
 
-    EQ           { TokenEq _ } 
-    GT      { TokenGT _ } 
-    LT      { TokenLT _ } 
-    QUOTE            { TokenQuote _ } 
+    EQ          { TokenEq _ } 
+    GT          { TokenGT _ } 
+    LT          { TokenLT _ } 
+    QUOTE       { TokenQuote _ } 
     LENGTH      { TokenLength _ } 
     ORD_OF      { TokenOrd _ } 
     
@@ -60,10 +61,10 @@ import Tokens
     TIMES       { TokenMul _ }
     DIVIDE      { TokenDiv _ }
     POWER       { TokenPow _ }
-    INT       { TokenDigit _ $$ } 
-    STRING    { TokenVar _ $$ }
-    NUM       { TokenNumber _ }
-    ANY       { TokenAny _ $$ }
+    INT         { TokenDigit _ $$ } 
+    STRING      { TokenVar _ $$ }
+    NUM         { TokenNumber _ }
+    ANY         { TokenAny _ $$ }
 
 %left PLUS MINUS TIMES DIVIDE
 %left AND OR XOR DOT
@@ -108,6 +109,7 @@ Optionals : Operation Optionals { ($1 : $2) }
 Operation : WHEN Boolean { WhenCondition $2 }
     | STORE STRING { Store $2 }
     | AS Outputs { AsExpr $2 }
+    | TRANSPOSE { Transpose }
     | ORDER Order { OrderAs $2 }
     | GROUPING Comparison { GroupAs $2 }
 Outputs : Output { [ $1 ] }
@@ -209,6 +211,7 @@ data Optional
   = WhenCondition Boolean
   | Store String
   | AsExpr [Outputs]
+  | Transpose
   | OrderAs Order
   | GroupAs Comparison
   deriving (Show, Eq)
