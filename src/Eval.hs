@@ -309,7 +309,7 @@ evalOptional (Store filename) columns _ = do
 evalOptional (AsExpr outputMod) columns _ = return (evalAs outputMod columns [])
 evalOptional (Transpose) columns _ = return (evalTranspose columns)
 evalOptional (OrderAs order) columns _ = return (evalOrder order columns)
-evalOptional (GroupAs theGroup) columns _ = return $ concat (groupBy (evalGroup theGroup) columns)
+evalOptional (GroupAs theGroup) columns tables = return $ concat (groupBy (evalGroup theGroup tables) columns)
 
 -- For each line in each column, it checks whether it's inlcuded in the output
 -- If it is, add it to the list
@@ -361,14 +361,9 @@ evalOrder (OrderCalc calc) result = zip (map fst result) (transpose sortedRows)
           sortedRows = map (rows !!) sortIndices
 
 -- Takes in a comparison, and returns if the columns are in the same group
-evalGroup :: Comparison -> ColumnType -> ColumnType -> Bool
-evalGroup theGroup (colIndex1, values1) (colIndex2, values2) =
-    evalBoolComp theGroup [] 0 && colIndex1 == colIndex2
-
-
---evalGroup :: Comparison -> [Table] -> ColumnType -> ColumnType -> Bool
---evalGroup theGroup tables (colIndex1, values1) (colIndex2, values2) =
---    evalBoolComp theGroup tables 0 && colIndex1 == colIndex2
+evalGroup :: Comparison -> [Table] -> ColumnType -> ColumnType -> Bool
+evalGroup theGroup tables (colIndex1, values1) (colIndex2, values2) =
+    evalBoolComp theGroup tables 0 && colIndex1 == colIndex2
 
 safeHead :: [a] -> a
 safeHead [] = error "Empty list"
