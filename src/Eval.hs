@@ -250,7 +250,7 @@ getColumn colIndex tables = (colIndex, concatMap (getColValues colIndex) tables)
         getColValues columnIndex (_, rows) = map (!! columnIndex) rows
 
 getColWithIndex :: Int -> Int -> [Table] -> ColumnType
-getColWithIndex colIndex tabIndex tables = (colIndex, concatMap (getColValues colIndex) filteredTables)
+getColWithIndex tabIndex colIndex tables = (colIndex, concatMap (getColValues colIndex) filteredTables)
     where
         filteredTables = filter (\(tblIndex, _) -> tblIndex == tabIndex) tables
         getColValues :: Int -> Table -> [String]
@@ -273,9 +273,15 @@ evalBoolComp (IntLT number1 number2) tables row = evalInt number1 tables row < e
 
 evalString :: Str -> [Table] -> Int -> String
 evalString (Number x) tables row = case tables of
-    (table:_) -> snd (getColumn x [table]) !! row
+    (table:_) -> if row < rows then cols!!row else ""
+        where rows = length cols
+              cols = snd (getColumn x [table])
     [] -> error "No tables available to evaluate the number."
-evalString (SpecNumber x tabIndex) t row = snd (getColWithIndex x tabIndex t) !! row
+
+evalString (SpecNumber x tabIndex) t row | row >= rows = ""
+                                         | otherwise = cols!!row
+    where rows = length cols
+          cols = snd (getColWithIndex x tabIndex t)
 evalString (Name x) _ _ = x
 evalString (Quote x) _ _ = filter (/='\"') x
 
