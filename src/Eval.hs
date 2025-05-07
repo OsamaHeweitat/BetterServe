@@ -57,7 +57,6 @@ evalTable tableIndex (LoadTable filename) = do
     contents <- readFile (filename ++ ".csv")
     let newContents = if "\n" `isSuffixOf` contents then contents ++ "\n" else contents
     let rows = lines newContents
-    putStrLn ("Rows:" ++ show rows)
     let arities = map (length . splitOn ",") rows
     if all (== head arities) arities
         then return ()
