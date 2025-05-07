@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use when" #-}
 module Eval where
 import Grammar
 import Tokens
@@ -24,9 +26,7 @@ eval filename = do
 evalProgram :: Program -> String -> Bool -> IO String
 evalProgram (Program []) result _ = return result
 evalProgram (Program (statement:rest)) result newline = do
-    if newline
-        then putStrLn ""
-        else putStr ""
+    (if newline && ("OUTPUT" `isSuffixOf` show statement) then putStrLn "" else return ())
     stmtLines <- evalStmt statement
     --putStrLn $ "Statement: " ++ show stmtLines
     let formatted = unlines (filter (not . null) (map (toCSVFormat . snd) stmtLines))
