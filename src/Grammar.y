@@ -12,7 +12,7 @@ import Tokens
     FROM        { TokenFROM _ } 
     COMMENT     { TokenComment _ $$ }
 
-    AST         { TokenAll _ } 
+    AST         { TokenAst _ } 
     COMMA       { TokenComma _ } 
     LPAREN      { TokenLParen _ } 
     IF          { TokenIf _ } 
@@ -58,7 +58,6 @@ import Tokens
     ORD_OF      { TokenOrd _ } 
     
     MINUS       { TokenMinus _ }
-    TIMES       { TokenMul _ }
     DIVIDE      { TokenDiv _ }
     POWER       { TokenPow _ }
     INT         { TokenDigit _ $$ } 
@@ -146,7 +145,7 @@ IntCalc : LENGTH Str { CountLength $2 }
     | ORD_OF Str { CharOrdOfCol $2 }
     | IntCalc PLUS IntCalc { IntAdd $1 $3 }
     | IntCalc MINUS IntCalc { IntSub $1 $3 }
-    | IntCalc TIMES IntCalc { IntMul $1 $3 }
+    | IntCalc AST IntCalc { IntMul $1 $3 }
     | IntCalc DIVIDE IntCalc { IntDiv $1 $3 }
     | IntCalc POWER IntCalc { IntPow $1 $3 }
 
