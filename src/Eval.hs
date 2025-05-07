@@ -55,14 +55,17 @@ evalTables tableIndex (table:rest) = do
 evalTable :: Int -> Tables -> IO Table
 evalTable tableIndex (LoadTable filename) = do
     contents <- readFile (filename ++ ".csv")
-    let rows = lines contents
+    let newContents = if "\n" `isSuffixOf` contents then contents ++ "\n" else contents
+    let rows = lines newContents
+    putStrLn ("Rows:" ++ show rows)
     let arities = map (length . splitOn ",") rows
     if all (== head arities) arities
         then return ()
         else error "CSV file has inconsistent arity."
 
     let rows = map (splitOn ",") (lines contents)
-    return (tableIndex, rows)
+    let cleanedRows = map (map (reverse . dropWhile (== ' ') . reverse . dropWhile (== ' '))) rows
+    return (tableIndex, cleanedRows)
 
 evalTable tableIndex (TableOp tables1 expr tables2) = do
     evalTables1 <- evalTables tableIndex tables1
@@ -208,7 +211,9 @@ evalEnd :: IO [ColumnType] -> End -> IO [ColumnType]
 evalEnd final End = final
 evalEnd final Output = do
     printedLine <- final
-    if not (null printedLine) then putStrLn (toOutputForm (columnToRows printedLine)) else putStr ""
+    let output = toOutputForm (columnToRows printedLine)
+    let outputTrimmed = reverse (dropWhile (== '\n') (reverse output))
+    if not (null printedLine) then putStr (outputTrimmed) else putStr ""
     return printedLine
 
 evalSelection :: Selection -> [Table] -> IO [ColumnType]
@@ -275,7 +280,11 @@ evalString :: Str -> [Table] -> Int -> String
 evalString (Number x) tables row = case tables of
     (table:_) -> snd (getColumn x [table]) !! row
     [] -> error "No tables available to evaluate the number."
-evalString (SpecNumber x tabIndex) t row = snd (getColWithIndex x tabIndex t) !! row
+evalString (SpecNumber x tabIndex) t row = 
+    let colValues = snd (getColWithIndex x tabIndex t)
+    in if row >= 0 && row < length colValues
+       then colValues !! row
+       else error $ "Row index " ++ show row ++ " out of bounds for table." ++ show tabIndex ++ " and column " ++ show x ++ "." ++ show t
 evalString (Name x) _ _ = x
 evalString (Quote x) _ _ = filter (/='\"') x
 
