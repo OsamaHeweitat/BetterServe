@@ -77,7 +77,7 @@ evalTable tableIndex (TableOp tables1 expr tables2) = do
             | expr == Cartesian =
                 (tableIndex, [row1 ++ row2 | (_, rows1) <- evalTables1, row1 <- rows1, (_, rows2) <- evalTables2, row2 <- rows2])
             | expr == Union =
-                (tableIndex, concatMap snd evalTables1 ++ concatMap snd evalTables2)
+                (tableIndex, nub (concatMap snd evalTables1 ++ concatMap snd evalTables2))
             | expr == Intersect =
                 (tableIndex, [row1 | (_, rows1) <- evalTables1, row1 <- rows1, (_, rows2) <- evalTables2, row2 <- rows2, row1 == row2])
     return result
