@@ -52,7 +52,7 @@ import Tokens
     EQ           { TokenEq _ } 
     GT      { TokenGT _ } 
     LT      { TokenLT _ } 
-    QUOTE            { TokenString _ } 
+    QUOTE            { TokenQuote _ } 
     LENGTH      { TokenLength _ } 
     ORD_OF      { TokenOrd _ } 
     
@@ -62,9 +62,12 @@ import Tokens
     POWER       { TokenPow _ }
     INT       { TokenDigit _ $$ } 
     STRING    { TokenVar _ $$ }
+    NUM       { TokenNumber _ }
+    ANY       { TokenAny _ $$ }
 
 %left PLUS MINUS TIMES DIVIDE
 %left AND OR XOR DOT
+%right COMMA
 %right POWER NOT
 %nonassoc EQ GT LT
 
@@ -72,21 +75,26 @@ import Tokens
 
 Program : Statement { [ $1 ] }
     | Program SEMICOLON Statement { $1 ++ [ $3 ] }
-Statement : GET Selection FROM Tables Optionals { SelectStmt $2 $4 $5 }
+Statement : GET Selection FROM Tables End { SelectStmt $2 $4 $5 }
+    | GET Selection FROM Tables Optionals End { SelectOpt $2 $4 $5 $6 }
     | COMMENT { CommentStmt $1 }
+End : OUTPUT { Output }
+    | END { End }
 
 Selection : ColumnList { SelectColumns $1 }
     | AST { SelectAll }
 ColumnList : Column { [$1] }
-    | ColumnList COMMA Column { $1 ++ [$3] }
+    | ColumnList COMMA ColumnList { $1 ++ $3 }
     | LPAREN ColumnList IF Boolean OTHERWISE ColumnList RPAREN { [IfStmt $2 $4 $6] }
 Column : INT { ColIndex $1 }
-    | INT DOT STRING { ColIndexTable $1 $3 }
+    | INT DOT INT { ColIndexTable $1 $3 }
 
-Tables : LOAD STRING { LoadTable $2 }
-    | Tables TableExpr Tables { TableOp $1 $2 $3 }
-    | Tables PLUS Tables { TableConc $1 $3 }
-    | Tables TJoin Tables ON Comparison { TableJoin $1 $2 $3 $5 }
+Tables : LOAD STRING { [LoadTable $2] }
+    | LPAREN Tables TableExpr Tables RPAREN { [TableOp $2 $3 $4] }
+    | LPAREN Tables PLUS Tables RPAREN { [TableConc $2 $4] }
+    | LPAREN Tables TJoin Tables ON Comparison RPAREN { [TableJoin $2 $3 $4 $6] }
+    | Tables COMMA Tables { $1 ++ $3 }
+
 TableExpr : CARTESIAN { Cartesian }
     | UNION { Union }
     | INTERSECT { Intersect }
@@ -96,23 +104,23 @@ TJoin : INNER { InnerJoin }
     | FULL { Join }
 
 Optionals : Operation Optionals { ($1 : $2) }
-    | OUTPUT { [Output] }
-    | END { [End] }
+    | Operation { [$1] }
 Operation : WHEN Boolean { WhenCondition $2 }
     | STORE STRING { Store $2 }
     | AS Outputs { AsExpr $2 }
     | ORDER Order { OrderAs $2 }
     | GROUPING Comparison { GroupAs $2 }
 Outputs : Output { [ $1 ] }
-    | Outputs Output { $1 ++ [$2] }
-Output : ColumnList { OutputCols $1 }
+    | Outputs COMMA Output { $1 ++ [$3] }
+Output : INT { OutputCols $1 }
     | STRING { OutputString $1 }
+    | ANY { OutputQuote $1 }
 Order : IntCalc { OrderCalc $1 }
-    | IntCalc DOT Order { NestedOrder $1 }
+    | IntCalc COMMA Order { NestedOrder $1 $3 }
     | UP { OrderByAsc }
     | DOWN { OrderByDesc }
 
-Boolean : Boolean BoolOp Boolean { BoolExpr $1 $2 $3 }
+Boolean : LPAREN Boolean BoolOp Boolean RPAREN { BoolExpr $2 $3 $4 }
     | NOT Boolean { BoolNOT $2 }
     | TRUE { BoolTrue }
     | FALSE { BoolFalse }
@@ -121,18 +129,19 @@ Boolean : Boolean BoolOp Boolean { BoolExpr $1 $2 $3 }
 BoolOp : AND { BoolAND }
     | OR { BoolOR }
     | XOR { BoolXOR }
-Comparison : Str EQ Str { StringComp $1 $3 }
+Comparison : Str EQ EQ Str { StringComp $1 $4 }
     | IntCalc EQ IntCalc { IntEq $1 $3 }
     | IntCalc GT IntCalc { IntGT $1 $3 }
     | IntCalc LT IntCalc { IntLT $1 $3 }
 
 Str : INT { Number $1 }
+    | INT DOT INT { SpecNumber $1 $3 }
     | STRING { Name $1 }
-    | QUOTE Str QUOTE { $2 }
+    | ANY { Quote $1 }
 
-IntCalc : LENGTH Column { CountLength $2 }
-    | INT { Digit $1 }
-    | ORD_OF INT { CharOrdOfCol $2 }
+IntCalc : LENGTH Str { CountLength $2 }
+    | NUM INT { Digit $2 }
+    | ORD_OF Str { CharOrdOfCol $2 }
     | IntCalc PLUS IntCalc { IntAdd $1 $3 }
     | IntCalc MINUS IntCalc { IntSub $1 $3 }
     | IntCalc TIMES IntCalc { IntMul $1 $3 }
@@ -151,8 +160,14 @@ data Program = Program [Statement]
 
 -- | SQL-like Statements
 data Statement
-  = SelectStmt Selection Tables [Optional]  -- `GET ... FROM ...`
+  = SelectOpt Selection [Tables] [Optional] End -- `GET ... FROM ...`
+  | SelectStmt Selection [Tables] End
   | CommentStmt String                      -- `# Comment`
+  deriving (Show, Eq)
+
+data End
+  = Output
+  | End
   deriving (Show, Eq)
 
 -- | Selection of columns
@@ -164,16 +179,16 @@ data Selection
 -- | Column expressions
 data Column
   = ColIndex Int             -- Column by index
-  | ColIndexTable Int String -- Column in table (e.g., `1.name`)
+  | ColIndexTable Int Int
   | IfStmt [Column] Boolean [Column] -- Conditional column selection (IF ... OTHERWISE ...)
   deriving (Show, Eq)
 
 -- | Tables & joins
 data Tables
   = LoadTable String                    -- `LOAD "table.csv"`
-  | TableOp Tables TableExpr Tables     -- Table operation (e.g., `CARTESIAN`, `UNION`)
-  | TableConc Tables Tables             -- Table concatenation (`+`)
-  | TableJoin Tables TJoin Tables Comparison -- Joins (`INNER`, `LEFT`, etc.)
+  | TableOp [Tables] TableExpr [Tables]     -- Table operation (e.g., `CARTESIAN`, `UNION`)
+  | TableConc [Tables] [Tables]             -- Table concatenation (`+`)
+  | TableJoin [Tables] TJoin [Tables] Comparison -- Joins (`INNER`, `LEFT`, etc.)
   deriving (Show, Eq)
 
 data TableExpr
@@ -189,27 +204,26 @@ data TJoin
   | Join
   deriving (Show, Eq)
 
--- | Optional clauses like ORDER, GROUPING, WHEN, OUTPUT
+-- | Optional clauses
 data Optional
   = WhenCondition Boolean
   | Store String
   | AsExpr [Outputs]
   | OrderAs Order
   | GroupAs Comparison
-  | Output
-  | End
   deriving (Show, Eq)
 
 -- | Outputs for `AS`
 data Outputs
-  = OutputCols [Column]
+  = OutputCols Int -- NOW you choose from your indexed selection
   | OutputString String
+  | OutputQuote String
   deriving (Show, Eq)
 
 -- | Ordering options
 data Order
   = OrderCalc IntCalc
-  | NestedOrder IntCalc
+  | NestedOrder IntCalc Order
   | OrderByAsc
   | OrderByDesc
   deriving (Show, Eq)
@@ -231,24 +245,25 @@ data BoolOp
 
 -- | Comparisons
 data Comparison
-  = StringComp Str Str  -- `name = "John"`
+  = StringComp Str Str
   | IntEq IntCalc IntCalc
   | IntGT IntCalc IntCalc
   | IntLT IntCalc IntCalc
   deriving (Show, Eq)
 
--- | String expressions
+-- | NEEDED
 data Str
   = Number Int
   | Name String
-  | Quoted Str
+  | SpecNumber Int Int
+  | Quote String
   deriving (Show, Eq)
 
 -- | Integer calculations
 data IntCalc
-  = CountLength Column    -- `LENGTH(col)`
-  | Digit Int             -- `5`
-  | CharOrdOfCol Int      -- `ORD_OF(5)`
+  = CountLength Str -- Count length of 
+  | Digit Int           
+  | CharOrdOfCol Str      
   | IntAdd IntCalc IntCalc
   | IntSub IntCalc IntCalc
   | IntMul IntCalc IntCalc

@@ -1,2 +1,16 @@
 .stack-work/
 *~
+src/Grammar.hs
+src/Tokens.hs
+.vscode
+dist-newstyle/
+test.bs
+src/Grammar.info
+src/Grammar.hi
+src/Grammar.o
+src/Tokens.hi
+src/Tokens.o
+src/OldEval.hs
+*.csv
+solutions/testfiles
+solutions/*.csv

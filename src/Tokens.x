@@ -58,7 +58,7 @@ $white+         ;
   "="           { \p s -> TokenEq p } 
   ">"           { \p s -> TokenGT p }
   "<"           { \p s -> TokenLT p }
-  "\""            { \p s -> TokenString p } 
+  \"            { \p s -> TokenQuote p } 
 
   "LENGTH"      { \p s -> TokenLength p } 
   "ORD_OF"      { \p s -> TokenOrd p } 
@@ -67,6 +67,8 @@ $white+         ;
   "*"           { \p s -> TokenMul p }
   "/"           { \p s -> TokenDiv p }
   "^"           { \p s -> TokenPow p }
+  "NUM"         { \p s -> TokenNumber p }
+  \"[^\"]*\"    { \p s -> TokenAny p s }
   $digit+       { \p s -> TokenDigit p (read s) } 
   $alpha [$alpha $digit]*   { \p s -> TokenVar p s } 
 
@@ -114,21 +116,24 @@ data Token =
   TokenEq AlexPosn          |
   TokenGT AlexPosn          |
   TokenLT AlexPosn          |
-  TokenString AlexPosn      |
+  TokenQuote AlexPosn       |
   TokenLength AlexPosn      |
   TokenOrd AlexPosn         |
   TokenMinus AlexPosn       |
   TokenMul AlexPosn         |
   TokenDiv AlexPosn         |
   TokenPow AlexPosn         |
+  TokenNumber AlexPosn      |
   TokenDigit AlexPosn Int   |
-  TokenVar AlexPosn String   
+  TokenVar AlexPosn String  |
+  TokenAny AlexPosn String
   deriving (Eq,Show) 
 
 tokenPosn :: Token -> String
 tokenPosn (TokenComment (AlexPn a l c) s) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenDigit (AlexPn a l c) i) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenVar (AlexPn a l c) s) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenAny (AlexPn a l c) s) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenSemicolon (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenGET (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenFROM (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
@@ -167,11 +172,12 @@ tokenPosn (TokenXOR (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenEq (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenGT (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenLT (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenString (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenQuote (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenLength (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenOrd (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenMinus (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenMul (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenDiv (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenPow (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenNumber (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
 }
