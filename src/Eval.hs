@@ -351,7 +351,7 @@ evalTranspose columns = zip [0..] (rows)
 evalOrder :: Order -> [ColumnType] -> [ColumnType]
 evalOrder OrderByAsc result = zip (map fst result) (transpose (sort (columnToRows result)))
 evalOrder OrderByDesc result = zip (map fst result) (transpose (sortBy (flip compare) (columnToRows result)))
-evalOrder (NestedOrder calc order) result = result -- TODO
+evalOrder (NestedOrder calc order) result = evalOrder order (evalOrder (OrderCalc calc) result) -- Dont know why this was written like this
 evalOrder (OrderCalc calc) result = zip (map fst result) (transpose sortedRows)
     where rows = columnToRows result
           sortIndices = sortOn (\i -> evalInt calc [(0, columnToRows result)] i) [0..length rows - 1]
