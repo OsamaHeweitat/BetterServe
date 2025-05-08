@@ -17,7 +17,7 @@ $white+         ;
   ";"           { \p _ -> TokenSemicolon p } 
   "GET"         { \p _ -> TokenGET p } 
   "FROM"        { \p _ -> TokenFROM p } 
-  "#" [$alpha $digit \s]*  { \p s -> TokenComment p (read s) } 
+  "#" [^\;]*  { \p s -> TokenComment p s } 
 
   "*"           { \p _ -> TokenAst p } 
   ","           { \p _ -> TokenComma p } 

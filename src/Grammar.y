@@ -65,7 +65,7 @@ import Tokens
     NUM         { TokenNumber _ }
     ANY         { TokenAny _ $$ }
 
-%left PLUS MINUS TIMES DIVIDE
+%left PLUS MINUS AST DIVIDE
 %left AND OR XOR DOT
 %right COMMA
 %right POWER NOT
