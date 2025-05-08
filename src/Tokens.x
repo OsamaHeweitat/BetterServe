@@ -19,7 +19,7 @@ $white+         ;
   "FROM"        { \p _ -> TokenFROM p } 
   "#" [$alpha $digit \s]*  { \p s -> TokenComment p (read s) } 
 
-  "*"           { \p _ -> TokenAll p } 
+  "*"           { \p _ -> TokenAst p } 
   ","           { \p _ -> TokenComma p } 
   "("           { \p _ -> TokenLParen p } 
   "IF"          { \p _ -> TokenIf p } 
@@ -65,7 +65,6 @@ $white+         ;
   "ORD_OF"      { \p _ -> TokenOrd p } 
   "+"           { \p _ -> TokenPlus p }
   "-"           { \p _ -> TokenMinus p }
-  "*"           { \p _ -> TokenMul p }
   "/"           { \p _ -> TokenDiv p }
   "^"           { \p _ -> TokenPow p }
   "NUM"         { \p _ -> TokenNumber p }
@@ -82,7 +81,7 @@ data Token =
   TokenGET AlexPosn         |
   TokenFROM AlexPosn        |
   TokenComment AlexPosn String |
-  TokenAll AlexPosn         |
+  TokenAst AlexPosn         |
   TokenComma AlexPosn       | 
   TokenLParen AlexPosn      |
   TokenIf AlexPosn          |
@@ -122,7 +121,6 @@ data Token =
   TokenLength AlexPosn      |
   TokenOrd AlexPosn         |
   TokenMinus AlexPosn       |
-  TokenMul AlexPosn         |
   TokenDiv AlexPosn         |
   TokenPow AlexPosn         |
   TokenNumber AlexPosn      |
@@ -139,7 +137,7 @@ tokenPosn (TokenAny (AlexPn _ l c) _) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenSemicolon (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenGET (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenFROM (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenAll (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenAst (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenComma (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenLParen (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenIf (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
@@ -179,7 +177,6 @@ tokenPosn (TokenQuote (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenLength (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenOrd (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenMinus (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenMul (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenDiv (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenPow (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
 tokenPosn (TokenNumber (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
