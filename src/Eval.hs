@@ -31,7 +31,10 @@ evalProgram (Program (statement:rest)) result newline = do
     (if newline && ("Output" `isSuffixOf` (reverse (dropWhile (== ' ') (reverse (show statement))))) then putStrLn "" else return ())
     stmtLines <- evalStmt statement
     let formatted = unlines (filter (not . null) (map (toCSVFormat . snd) stmtLines))
-    evalProgram (Program rest) (result ++ formatted) True
+    --putStrLn $ "Formatted: " ++ formatted
+    --putStrLn $ "Result: " ++ result
+    -- evalProgram (Program rest) (result ++ "\n" ++ formatted)
+    evalProgram (Program rest) (result ++ formatted) ("Output" `isSuffixOf` (reverse (dropWhile (== ' ') (reverse (show statement)))))
     where
         toCSVFormat :: [String] -> String
         toCSVFormat = intercalate ","
