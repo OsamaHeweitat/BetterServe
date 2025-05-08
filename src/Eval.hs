@@ -34,7 +34,7 @@ evalProgram (Program (statement:rest)) result newline = do
     --putStrLn $ "Formatted: " ++ formatted
     --putStrLn $ "Result: " ++ result
     -- evalProgram (Program rest) (result ++ "\n" ++ formatted)s
-    let newlineValue = if not newline then ("Output" `isSuffixOf` (reverse (dropWhile (== ' ') (reverse (show statement))))) else newline
+    let newlineValue = if not newline then ("Output" `isSuffixOf` (reverse (dropWhile (== ' ') (reverse (show statement))))) else True
     evalProgram (Program rest) (result ++ formatted) newlineValue
     where
         toCSVFormat :: [String] -> String
