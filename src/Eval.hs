@@ -33,8 +33,9 @@ evalProgram (Program (statement:rest)) result newline = do
     let formatted = unlines (filter (not . null) (map (toCSVFormat . snd) stmtLines))
     --putStrLn $ "Formatted: " ++ formatted
     --putStrLn $ "Result: " ++ result
-    -- evalProgram (Program rest) (result ++ "\n" ++ formatted)
-    evalProgram (Program rest) (result ++ formatted) ("Output" `isSuffixOf` (reverse (dropWhile (== ' ') (reverse (show statement)))))
+    -- evalProgram (Program rest) (result ++ "\n" ++ formatted)s
+    let newlineValue = if not newline then ("Output" `isSuffixOf` (reverse (dropWhile (== ' ') (reverse (show statement))))) else newline
+    evalProgram (Program rest) (result ++ formatted) newlineValue
     where
         toCSVFormat :: [String] -> String
         toCSVFormat = intercalate ","
