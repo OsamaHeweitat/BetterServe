@@ -33,7 +33,7 @@ evalProgram (Program (statement:rest)) result newline = do
     --putStrLn $ "Formatted: " ++ formatted
     --putStrLn $ "Result: " ++ result
     -- evalProgram (Program rest) (result ++ "\n" ++ formatted)
-    evalProgram (Program rest) (result ++ formatted) True
+    evalProgram (Program rest) (result ++ formatted) ("Output" `isSuffixOf` (reverse (dropWhile (== ' ') (reverse (show statement)))))
     where
         toCSVFormat :: [String] -> String
         toCSVFormat = intercalate ","
