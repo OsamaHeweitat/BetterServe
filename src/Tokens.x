@@ -14,60 +14,60 @@ $white = [\ \t\n]
 
 tokens :-
 $white+         ; 
-  ";"           { \p s -> TokenSemicolon p } 
-  "GET"         { \p s -> TokenGET p } 
-  "FROM"        { \p s -> TokenFROM p } 
-  "#" [$alpha $digit \s]*  { \p s -> TokenComment p (read s) } 
+  ";"           { \p _ -> TokenSemicolon p } 
+  "GET"         { \p _ -> TokenGET p } 
+  "FROM"        { \p _ -> TokenFROM p } 
+  "#" [^\;]*  { \p s -> TokenComment p s } 
 
-  "*"           { \p s -> TokenAll p } 
-  ","           { \p s -> TokenComma p } 
-  "("           { \p s -> TokenLParen p } 
-  "IF"          { \p s -> TokenIf p } 
-  "OTHERWISE"   { \p s -> TokenOtherwise p } 
-  ")"           { \p s -> TokenRParen p } 
-  "."           { \p s -> TokenPeriod p } 
+  "*"           { \p _ -> TokenAst p } 
+  ","           { \p _ -> TokenComma p } 
+  "("           { \p _ -> TokenLParen p } 
+  "IF"          { \p _ -> TokenIf p } 
+  "OTHERWISE"   { \p _ -> TokenOtherwise p } 
+  ")"           { \p _ -> TokenRParen p } 
+  "."           { \p _ -> TokenPeriod p } 
 
-  "LOAD"        { \p s -> TokenLoad p } 
-  "ON"          { \p s -> TokenOn p } 
-  "CARTESIAN"   { \p s -> TokenCartesian p } 
-  "UNION"       { \p s -> TokenUnion p } 
-  "INTERSECT"   { \p s -> TokenIntersect p } 
-  "INNER"       { \p s -> TokenInner p } 
-  "LEFT"        { \p s -> TokenLJoin p } 
-  "RIGHT"       { \p s -> TokenRJoin p } 
-  "FULL"        { \p s -> TokenJoin p } 
+  "LOAD"        { \p _ -> TokenLoad p } 
+  "ON"          { \p _ -> TokenOn p } 
+  "CARTESIAN"   { \p _ -> TokenCartesian p } 
+  "UNION"       { \p _ -> TokenUnion p } 
+  "INTERSECT"   { \p _ -> TokenIntersect p } 
+  "INNER"       { \p _ -> TokenInner p } 
+  "LEFT"        { \p _ -> TokenLJoin p } 
+  "RIGHT"       { \p _ -> TokenRJoin p } 
+  "FULL"        { \p _ -> TokenJoin p } 
 
-  "OUTPUT"      { \p s -> TokenOutput p } 
-  "END"         { \p s -> TokenEnd p } 
+  "OUTPUT"      { \p _ -> TokenOutput p } 
+  "END"         { \p _ -> TokenEnd p } 
 
-  "WHEN"        { \p s -> TokenWhen p } 
-  "STORE"       { \p s -> TokenStore p } 
-  "AS"          { \p s -> TokenAs p } 
-  "ORDER"       { \p s -> TokenOrder p } 
-  "GROUPING"    { \p s -> TokenGrouping p } 
-  "UP"          { \p s -> TokenUp p } 
-  "DOWN"        { \p s -> TokenDown p } 
+  "WHEN"        { \p _ -> TokenWhen p } 
+  "STORE"       { \p _ -> TokenStore p } 
+  "AS"          { \p _ -> TokenAs p } 
+  "TRANSPOSE"   { \p _ -> TokenTrans p }
+  "ORDER"       { \p _ -> TokenOrder p } 
+  "GROUPING"    { \p _ -> TokenGrouping p } 
+  "UP"          { \p _ -> TokenUp p } 
+  "DOWN"        { \p _ -> TokenDown p } 
 
-  "NOT"         { \p s -> TokenNOT p } 
-  "TRUE"        { \p s -> TokenTrue p } 
-  "FALSE"       { \p s -> TokenFalse p } 
-  "AND"         { \p s -> TokenAND p } 
-  "OR"          { \p s -> TokenOR p } 
-  "XOR"         { \p s -> TokenXOR p } 
+  "NOT"         { \p _ -> TokenNOT p } 
+  "TRUE"        { \p _ -> TokenTrue p } 
+  "FALSE"       { \p _ -> TokenFalse p } 
+  "AND"         { \p _ -> TokenAND p } 
+  "OR"          { \p _ -> TokenOR p } 
+  "XOR"         { \p _ -> TokenXOR p } 
 
-  "="           { \p s -> TokenEq p } 
-  ">"           { \p s -> TokenGT p }
-  "<"           { \p s -> TokenLT p }
-  \"            { \p s -> TokenQuote p } 
+  "="           { \p _ -> TokenEq p } 
+  ">"           { \p _ -> TokenGT p }
+  "<"           { \p _ -> TokenLT p }
+  \"            { \p _ -> TokenQuote p } 
 
-  "LENGTH"      { \p s -> TokenLength p } 
-  "ORD_OF"      { \p s -> TokenOrd p } 
-  "+"           { \p s -> TokenPlus p }
-  "-"           { \p s -> TokenMinus p }
-  "*"           { \p s -> TokenMul p }
-  "/"           { \p s -> TokenDiv p }
-  "^"           { \p s -> TokenPow p }
-  "NUM"         { \p s -> TokenNumber p }
+  "LENGTH"      { \p _ -> TokenLength p } 
+  "ORD_OF"      { \p _ -> TokenOrd p } 
+  "+"           { \p _ -> TokenPlus p }
+  "-"           { \p _ -> TokenMinus p }
+  "/"           { \p _ -> TokenDiv p }
+  "^"           { \p _ -> TokenPow p }
+  "NUM"         { \p _ -> TokenNumber p }
   \"[^\"]*\"    { \p s -> TokenAny p s }
   $digit+       { \p s -> TokenDigit p (read s) } 
   $alpha [$alpha $digit]*   { \p s -> TokenVar p s } 
@@ -81,7 +81,7 @@ data Token =
   TokenGET AlexPosn         |
   TokenFROM AlexPosn        |
   TokenComment AlexPosn String |
-  TokenAll AlexPosn         |
+  TokenAst AlexPosn         |
   TokenComma AlexPosn       | 
   TokenLParen AlexPosn      |
   TokenIf AlexPosn          |
@@ -103,6 +103,7 @@ data Token =
   TokenWhen AlexPosn        |
   TokenStore AlexPosn       |
   TokenAs AlexPosn          |
+  TokenTrans AlexPosn       |
   TokenOrder AlexPosn       |
   TokenGrouping AlexPosn    |
   TokenUp AlexPosn          |
@@ -120,7 +121,6 @@ data Token =
   TokenLength AlexPosn      |
   TokenOrd AlexPosn         |
   TokenMinus AlexPosn       |
-  TokenMul AlexPosn         |
   TokenDiv AlexPosn         |
   TokenPow AlexPosn         |
   TokenNumber AlexPosn      |
@@ -130,54 +130,54 @@ data Token =
   deriving (Eq,Show) 
 
 tokenPosn :: Token -> String
-tokenPosn (TokenComment (AlexPn a l c) s) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenDigit (AlexPn a l c) i) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenVar (AlexPn a l c) s) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenAny (AlexPn a l c) s) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenSemicolon (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenGET (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenFROM (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenAll (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenComma (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenLParen (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenIf (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenOtherwise (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenRParen (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenPeriod (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenLoad (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenPlus (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenOn (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenCartesian (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenUnion (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenIntersect (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenInner (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenLJoin (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenRJoin (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenJoin (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenOutput (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenEnd (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenWhen (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenStore (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenAs (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenOrder (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenGrouping (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenUp (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenDown (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenNOT (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenTrue (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenFalse (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenAND (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenOR (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenXOR (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenEq (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenGT (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenLT (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenQuote (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenLength (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenOrd (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenMinus (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenMul (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenDiv (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenPow (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
-tokenPosn (TokenNumber (AlexPn a l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenComment (AlexPn _ l c) _) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenDigit (AlexPn _ l c) _) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenVar (AlexPn _ l c) _) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenAny (AlexPn _ l c) _) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenSemicolon (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenGET (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenFROM (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenAst (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenComma (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenLParen (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenIf (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenOtherwise (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenRParen (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenPeriod (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenLoad (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenPlus (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenOn (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenCartesian (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenUnion (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenIntersect (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenInner (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenLJoin (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenRJoin (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenJoin (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenOutput (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenEnd (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenWhen (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenStore (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenAs (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenTrans (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenOrder (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenGrouping (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenUp (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenDown (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenNOT (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenTrue (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenFalse (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenAND (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenOR (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenXOR (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenEq (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenGT (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenLT (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenQuote (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenLength (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenOrd (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenMinus (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenDiv (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenPow (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
+tokenPosn (TokenNumber (AlexPn _ l c)) = show (l) ++ ":" ++ show (c)
 }
